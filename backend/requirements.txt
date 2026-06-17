@@ -1,0 +1,21 @@
+# Smart Traffic Intelligence System — Backend Dependencies
+# Install with: pip install -r backend/requirements.txt
+
+# ── Web framework ──────────────────────────────────────────────────────────
+fastapi>=0.111.0
+uvicorn[standard]>=0.29.0
+
+# ── Data & ML ──────────────────────────────────────────────────────────────
+pandas>=2.0.0
+numpy>=1.26.0
+scikit-learn>=1.4.0
+joblib>=1.4.0
+
+# ── HTTP (NLP parser + action planner Gemini calls) ───────────────────────
+requests>=2.31.0
+
+# ── Environment config ─────────────────────────────────────────────────────
+python-dotenv>=1.0.0
+
+# ── Pydantic (bundled with FastAPI but pinned here for clarity) ────────────
+pydantic>=2.6.0

@@ -42,6 +42,12 @@ export default function NeoNavbar() {
                             Selected Works
                         </Link>
                         <Link
+                            href="/dashboard"
+                            className="px-4 py-2 font-mono text-sm font-bold border-2 border-transparent hover:border-neo-border hover:bg-secondary text-black transition-all uppercase tracking-tight"
+                        >
+                            Dashboard
+                        </Link>
+                        <Link
                             href="/journey"
                             className="px-4 py-2 font-mono text-sm font-bold border-2 border-transparent hover:border-neo-border hover:bg-secondary text-black transition-all uppercase tracking-tight"
                         >
@@ -85,6 +91,13 @@ export default function NeoNavbar() {
                         className="block w-full py-3 px-4 text-center font-mono font-bold uppercase border-2 border-transparent hover:bg-secondary hover:border-neo-border"
                     >
                         Selected Works
+                    </Link>
+                    <Link
+                        href="/dashboard"
+                        onClick={() => setIsMenuOpen(false)}
+                        className="block w-full py-3 px-4 text-center font-mono font-bold uppercase border-2 border-transparent hover:bg-secondary hover:border-neo-border"
+                    >
+                        Dashboard
                     </Link>
                     <Link
                         href="/journey"

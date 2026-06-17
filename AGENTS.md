@@ -335,3 +335,5 @@ Set up the Leaflet map. Integrate the heatmap plugin. Build zone polygons as con
 **Stage 4 — Frontend form, analytics, polish**
 
 Build the Submit Incident form with both input modes. Wire the three-step API sequence: `/nlp-parse` (if description), then `/predict`, then `/action-plan` as SSE. Build the Analytics page with all four Recharts charts. Wire the junction bar click to pan the map. Wire the feedback thumbs-up / thumbs-down buttons in the Incident Panel to `POST /feedback` — the buttons should only appear after the action plan finishes streaming, not during. Add loading skeletons and error handling throughout.
+
+Now once this is understood go to @architecture.md to understand how everything is handled, whats the type, the requirement everything.

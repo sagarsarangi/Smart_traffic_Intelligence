@@ -1,0 +1,2 @@
+{"timestamp": "2026-06-17T08:03:24.662380+00:00", "incident_context": {"zone": "South Zone 1", "priority": "High"}, "action_plan": "Officers: Deploy 4 officers...", "rating": "up"}
+{"timestamp": "2026-06-17T08:21:24.641154+00:00", "incident_context": {"zone": "South Zone 1", "event_cause": "accident", "priority": "High"}, "action_plan": "Officers: 4\nBarricades: at junction\nDiversion: via MG Road", "rating": "up"}

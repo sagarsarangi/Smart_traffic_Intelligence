@@ -82,7 +82,6 @@ export default function TeamPage() {
                         
                         {/* Member 1: The Systems Architect (Hacker/Terminal Theme) */}
                         <div className="team-card border-4 border-neo-border bg-neo-text text-white p-5 shadow-[6px_6px_0px_0px_#9FE870] group hover:-translate-y-2 hover:shadow-[10px_10px_0px_0px_#9FE870] transition-all relative overflow-hidden flex flex-col items-center text-center h-full">
-                            <div className="absolute top-0 right-0 p-3 opacity-20 group-hover:opacity-60 transition-opacity">
                             <div className="w-16 h-16 bg-black border-2 border-primary mb-3 flex items-center justify-center relative z-10 rounded-full">
                                 <UserFocus weight="bold" className="w-8 h-8 text-primary" />
                             </div>

@@ -123,16 +123,14 @@ export default function JourneyPage() {
     return (
         <div ref={containerRef} className="flex-1 w-full bg-grid pb-24 overflow-hidden">
             {/* Header */}
-            <section ref={headerRef} className="max-w-7xl mx-auto px-4 md:px-6 pt-6 pb-8 text-center">
-                <div className="inline-flex items-center gap-4 mb-4">
-                    <div className="h-14 w-14 bg-neo-text text-primary flex items-center justify-center shadow-[6px_6px_0px_0px_#9FE870]">
-                        <Database weight="fill" className="w-8 h-8" />
+            <section ref={headerRef} className="max-w-7xl mx-auto px-4 md:px-6 pt-6 pb-8">
+                <div className="flex items-center gap-4 mb-6">
+                    <div className="h-10 w-10 bg-neo-text flex items-center justify-center text-primary shadow-neo-sm">
+                        <Database weight="bold" className="w-6 h-6" />
                     </div>
+                    <h1 className="text-4xl md:text-5xl font-black uppercase tracking-tight">Data Pipeline</h1>
                 </div>
-                <h1 className="text-4xl md:text-6xl font-black uppercase tracking-tight leading-none mb-4">
-                    Data Pipeline
-                </h1>
-                <p className="text-lg md:text-xl font-mono text-gray-700 max-w-3xl mx-auto">
+                <p className="text-xl font-mono text-gray-600 max-w-3xl border-l-4 border-primary pl-4">
                     How we process 8,173 real Bengaluru incidents into predictive signals.
                 </p>
             </section>

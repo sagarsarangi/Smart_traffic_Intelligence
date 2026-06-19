@@ -31,10 +31,10 @@ export const DATA: SystemData = {
       number: "01",
       name: "NLP Description Parser",
       shortName: "NLP Parser",
-      description: "Accepts raw incident descriptions in Kannada, Hindi, mixed-language, or broken English and extracts structured incident metadata using Gemini Flash with few-shot prompting.",
-      techBadges: ["Gemini Flash", "Few-Shot Prompting", "Multilingual NLP"],
+      description: "Accepts raw incident descriptions in Kannada, Hindi, mixed-language, or broken English and extracts structured incident metadata using Groq with few-shot prompting.",
+      techBadges: ["Groq", "Few-Shot Prompting", "Multilingual NLP"],
       input: "Raw text description (any language — Kannada, Hindi, English, mixed)",
-      processing: "Single Gemini Flash API call with system instructions + few-shot examples → returns structured JSON extraction",
+      processing: "Single Groq API call with system instructions + few-shot examples → returns structured JSON extraction",
       output: "{ root_cause, vehicle_type, severity (1-3), action_needed, normalized_summary }",
       details: [
         "Handles Kannada script (e.g. 'ಬಿಎಂಟಿಸಿ ಬಸ್ ಕೆಟ್ಟು ನಿಂತಿದೆ') and transliterated text",
@@ -85,10 +85,10 @@ export const DATA: SystemData = {
       number: "04",
       name: "Action Planner",
       shortName: "Planner",
-      description: "Generates field-ready deployment plans by combining prediction results with incident context and sending a structured prompt to Gemini Flash, streaming the response token-by-token via SSE.",
-      techBadges: ["Gemini Flash", "SSE Streaming", "Structured Prompting"],
+      description: "Generates field-ready deployment plans by combining prediction results with incident context and sending a structured prompt to Groq, streaming the response token-by-token via SSE.",
+      techBadges: ["Groq", "SSE Streaming", "Structured Prompting"],
       input: "Full incident context: event_type, cause, address, junction, corridor, zone, predicted priority/confidence/duration, road_closure, NLP summary",
-      processing: "Structured Gemini Flash prompt → model generates 6-section deployment plan → streamed via SSE to frontend",
+      processing: "Structured Groq prompt → model generates 6-section deployment plan → streamed via SSE to frontend",
       output: "Six labeled sections streamed in real-time: Officers, Barricades, Diversion, Clearance Time, Escalation Trigger, Public Advisory",
       details: [
         "Planned events trigger pre-emptive deployment plans (officers positioned before event start)",
@@ -101,7 +101,7 @@ export const DATA: SystemData = {
   ],
 
   techStack: [
-    { category: "ML & AI", items: ["XGBoost", "Isolation Forest", "Gemini Flash API", "scikit-learn", "Pandas", "NumPy"] },
+    { category: "ML & AI", items: ["XGBoost", "Isolation Forest", "Groq API", "scikit-learn", "Pandas", "NumPy"] },
     { category: "Backend", items: ["FastAPI", "Python 3.11", "Uvicorn", "SSE Streaming", "joblib"] },
     { category: "Frontend", items: ["Next.js 16", "React 19", "Leaflet.js", "Recharts", "GSAP", "Tailwind CSS"] },
     { category: "Data", items: ["8,173 Records", "Bengaluru Traffic Dataset", "Real-time Anomaly Feed", "In-memory DataFrame"] },
@@ -184,7 +184,7 @@ export const DATA: SystemData = {
     {
       id: "03",
       title: "Automated Response Plans",
-      description: "Gemini Flash generates field-ready deployment plans streamed in real-time — specifying officer counts, barricade positions, diversion routes, and escalation triggers.",
+      description: "Groq generates field-ready deployment plans streamed in real-time — specifying officer counts, barricade positions, diversion routes, and escalation triggers.",
       features: ["SSE Token Streaming", "6-Section Plans", "Planned Event Pre-emption", "Feedback Loop"]
     }
   ],

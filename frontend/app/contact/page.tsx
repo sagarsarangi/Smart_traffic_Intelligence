@@ -74,83 +74,49 @@ export default function TeamPage() {
                 </p>
             </section>
 
-            <div className="max-w-7xl mx-auto px-4 md:px-6 grid lg:grid-cols-12 gap-10">
+            <div className="max-w-7xl mx-auto px-4 md:px-6 flex flex-col gap-12">
                 
-                {/* Team Roster - Unique Individual Cards */}
-                <div className="lg:col-span-8">
-                    <div className="grid sm:grid-cols-2 gap-8">
+                {/* Team Roster - Small Blocks */}
+                <div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                         
                         {/* Member 1: The Systems Architect (Hacker/Terminal Theme) */}
-                        <div className="team-card border-4 border-neo-border bg-neo-text text-white p-6 shadow-[8px_8px_0px_0px_#9FE870] group hover:-translate-y-2 hover:shadow-[12px_12px_0px_0px_#9FE870] transition-all relative overflow-hidden flex flex-col h-full">
-                            <div className="absolute top-0 right-0 p-3 opacity-20 group-hover:opacity-60 transition-opacity">
-                                <TerminalWindow weight="duotone" className="w-20 h-20 text-primary" />
+                        <div className="team-card border-4 border-neo-border bg-neo-text text-white p-5 shadow-[6px_6px_0px_0px_#9FE870] group hover:-translate-y-2 hover:shadow-[10px_10px_0px_0px_#9FE870] transition-all relative overflow-hidden flex flex-col items-center text-center h-full">
+                            <div className="w-16 h-16 bg-black border-2 border-primary mb-3 flex items-center justify-center relative z-10 rounded-full">
+                                <UserFocus weight="bold" className="w-8 h-8 text-primary" />
                             </div>
-                            <div className="w-14 h-14 bg-black border-2 border-primary mb-4 flex items-center justify-center relative z-10">
-                                <UserFocus weight="bold" className="w-7 h-7 text-primary" />
-                            </div>
-                            <div className="relative z-10 flex-1">
-                                <h3 className="text-2xl font-black uppercase tracking-tight mb-1 text-primary">{DATA.team[0]?.name || "Lead Dev"}</h3>
-                                <div className="font-mono text-[10px] font-bold text-black bg-primary inline-block px-2 py-1 mb-3">
-                                    {DATA.team[0]?.role || "Systems Architect"}
-                                </div>
-                                <p className="font-mono text-xs text-gray-400">
-                                    <span className="font-bold text-white uppercase">Focus:</span> {DATA.team[0]?.focus || "Full-Stack"}
-                                </p>
+                            <div className="relative z-10 flex-1 flex items-center justify-center">
+                                <h3 className="text-xl font-black uppercase tracking-tight text-primary">{DATA.team[0]?.name || "Lead Dev"}</h3>
                             </div>
                         </div>
 
                         {/* Member 2: The ML Engineer (Data/Graph Theme) */}
-                        <div className="team-card border-4 border-neo-border bg-white p-6 shadow-[8px_8px_0px_0px_#163300] group hover:-translate-y-2 hover:shadow-[12px_12px_0px_0px_#163300] transition-all relative overflow-hidden flex flex-col h-full">
-                            <div className="absolute inset-0 pattern-diagonal opacity-5"></div>
-                            <div className="absolute -bottom-10 -right-10 w-40 h-40 border-4 border-accent rounded-full opacity-20 group-hover:scale-150 transition-transform duration-700 ease-out"></div>
-                            <div className="w-14 h-14 bg-accent border-3 border-neo-border mb-4 flex items-center justify-center relative z-10 overflow-hidden">
-                                <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-500"></div>
-                                <TreeStructure weight="bold" className="w-7 h-7 text-neo-text" />
+                        <div className="team-card border-4 border-neo-border bg-white p-5 shadow-[6px_6px_0px_0px_#163300] group hover:-translate-y-2 hover:shadow-[10px_10px_0px_0px_#163300] transition-all relative overflow-hidden flex flex-col items-center text-center h-full">
+                            <div className="w-16 h-16 bg-accent border-3 border-neo-border mb-3 flex items-center justify-center relative z-10 overflow-hidden rounded-full">
+                                <TreeStructure weight="bold" className="w-8 h-8 text-neo-text" />
                             </div>
-                            <div className="relative z-10 flex-1">
-                                <h3 className="text-2xl font-black uppercase tracking-tight mb-1 text-neo-text">{DATA.team[1]?.name || "ML Eng"}</h3>
-                                <div className="font-mono text-[10px] font-bold text-white bg-neo-text inline-block px-2 py-1 mb-3">
-                                    {DATA.team[1]?.role || "Model Trainer"}
-                                </div>
-                                <p className="font-mono text-xs text-gray-600">
-                                    <span className="font-bold text-neo-text uppercase">Focus:</span> {DATA.team[1]?.focus || "XGBoost"}
-                                </p>
+                            <div className="relative z-10 flex-1 flex items-center justify-center">
+                                <h3 className="text-xl font-black uppercase tracking-tight text-neo-text">{DATA.team[1]?.name || "ML Eng"}</h3>
                             </div>
                         </div>
 
                         {/* Member 3: The AI Agent Dev (Glowing/Neuromancer Theme) */}
-                        <div className="team-card border-4 border-neo-border bg-black text-white p-6 shadow-[8px_8px_0px_0px_#a0e1e1] group hover:-translate-y-2 hover:shadow-[12px_12px_0px_0px_#a0e1e1] transition-all relative overflow-hidden flex flex-col h-full">
-                            <div className="absolute -top-10 -left-10 w-32 h-32 bg-accent/20 rounded-full blur-2xl group-hover:bg-accent/40 transition-colors"></div>
-                            <div className="w-14 h-14 bg-transparent border-2 border-accent mb-4 flex items-center justify-center relative z-10">
-                                <Brain weight="fill" className="w-7 h-7 text-accent drop-shadow-[0_0_8px_rgba(160,225,225,0.8)]" />
+                        <div className="team-card border-4 border-neo-border bg-black text-white p-5 shadow-[6px_6px_0px_0px_#a0e1e1] group hover:-translate-y-2 hover:shadow-[10px_10px_0px_0px_#a0e1e1] transition-all relative overflow-hidden flex flex-col items-center text-center h-full">
+                            <div className="w-16 h-16 bg-transparent border-2 border-accent mb-3 flex items-center justify-center relative z-10 rounded-full">
+                                <Brain weight="fill" className="w-8 h-8 text-accent drop-shadow-[0_0_8px_rgba(160,225,225,0.8)]" />
                             </div>
-                            <div className="relative z-10 flex-1">
-                                <h3 className="text-2xl font-black uppercase tracking-tight mb-1 text-accent">{DATA.team[2]?.name || "AI Dev"}</h3>
-                                <div className="font-mono text-[10px] font-bold text-black bg-accent inline-block px-2 py-1 mb-3">
-                                    {DATA.team[2]?.role || "Prompt Engineer"}
-                                </div>
-                                <p className="font-mono text-xs text-gray-400">
-                                    <span className="font-bold text-white uppercase">Focus:</span> {DATA.team[2]?.focus || "Agents"}
-                                </p>
+                            <div className="relative z-10 flex-1 flex items-center justify-center">
+                                <h3 className="text-xl font-black uppercase tracking-tight text-accent">{DATA.team[2]?.name || "AI Dev"}</h3>
                             </div>
                         </div>
 
                         {/* Member 4: The Frontend Engineer (Creative/Pixel Theme) */}
-                        <div className="team-card border-4 border-neo-border bg-primary p-6 shadow-[8px_8px_0px_0px_#163300] group hover:-translate-y-2 hover:shadow-[12px_12px_0px_0px_#163300] transition-all relative overflow-hidden flex flex-col h-full">
-                            <div className="absolute inset-0 flex items-center justify-center opacity-10 mix-blend-overlay pointer-events-none">
-                                <div className="w-full h-full bg-[radial-gradient(circle_at_center,_var(--neo-text)_2px,_transparent_2px)] bg-[size:16px_16px] group-hover:bg-[size:20px_20px] transition-all duration-500"></div>
+                        <div className="team-card border-4 border-neo-border bg-primary p-5 shadow-[6px_6px_0px_0px_#163300] group hover:-translate-y-2 hover:shadow-[10px_10px_0px_0px_#163300] transition-all relative overflow-hidden flex flex-col items-center text-center h-full">
+                            <div className="w-16 h-16 bg-white border-4 border-neo-border mb-3 flex items-center justify-center relative z-10 rounded-full group-hover:rotate-12 transition-transform">
+                                <PaintBrush weight="bold" className="w-8 h-8 text-neo-text" />
                             </div>
-                            <div className="w-14 h-14 bg-white border-4 border-neo-border mb-4 flex items-center justify-center relative z-10 group-hover:rotate-12 transition-transform">
-                                <PaintBrush weight="bold" className="w-7 h-7 text-neo-text" />
-                            </div>
-                            <div className="relative z-10 flex-1">
-                                <h3 className="text-2xl font-black uppercase tracking-tight mb-1 text-neo-text">{DATA.team[3]?.name || "UI/UX Dev"}</h3>
-                                <div className="font-mono text-[10px] font-bold text-white bg-neo-text inline-block px-2 py-1 mb-3 shadow-[2px_2px_0px_0px_#ffffff]">
-                                    {DATA.team[3]?.role || "Frontend Engineer"}
-                                </div>
-                                <p className="font-mono text-xs text-neo-text/80">
-                                    <span className="font-bold text-neo-text uppercase">Focus:</span> {DATA.team[3]?.focus || "React & GSAP"}
-                                </p>
+                            <div className="relative z-10 flex-1 flex items-center justify-center">
+                                <h3 className="text-xl font-black uppercase tracking-tight text-neo-text">{DATA.team[3]?.name || "UI/UX Dev"}</h3>
                             </div>
                         </div>
 
@@ -158,7 +124,7 @@ export default function TeamPage() {
                 </div>
 
                 {/* Project Info & Resources */}
-                <div className="lg:col-span-4 flex flex-col gap-8 fade-in-up">
+                <div className="grid md:grid-cols-2 gap-8 fade-in-up">
                     
                     <div className="border-4 border-neo-border bg-neo-text text-white p-8 shadow-[8px_8px_0px_0px_#9FE870] hover:-translate-y-1 hover:shadow-[10px_10px_0px_0px_#9FE870] transition-all relative overflow-hidden">
                         <div className="absolute -right-4 -top-4 w-24 h-24 bg-primary/10 rounded-full blur-xl animate-pulse"></div>
@@ -183,7 +149,7 @@ export default function TeamPage() {
                             </div>
                             <div className="flex justify-between pb-2 group">
                                 <span className="text-gray-400">LLM Engine</span>
-                                <span className="font-bold text-primary group-hover:text-white transition-colors">Gemini Flash</span>
+                                <span className="font-bold text-primary group-hover:text-white transition-colors">Groq</span>
                             </div>
                         </div>
                     </div>

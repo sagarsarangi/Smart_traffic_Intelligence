@@ -149,16 +149,14 @@ export default function AgentsPage() {
     return (
         <div ref={containerRef} className="flex-1 w-full bg-grid pb-20 overflow-hidden">
             {/* Header */}
-            <section ref={headerRef} className="max-w-7xl mx-auto px-4 md:px-6 pt-6 pb-8 text-center">
-                <div className="inline-flex items-center gap-4 mb-4 mx-auto">
-                    <div className="h-14 w-14 bg-primary border-4 border-neo-border flex items-center justify-center text-neo-text shadow-neo">
-                        <Brain weight="fill" className="w-8 h-8" />
+            <section ref={headerRef} className="max-w-7xl mx-auto px-4 md:px-6 pt-6 pb-8">
+                <div className="flex items-center gap-4 mb-6">
+                    <div className="h-10 w-10 bg-primary border-2 border-neo-border flex items-center justify-center text-neo-text shadow-neo-sm">
+                        <Brain weight="bold" className="w-6 h-6" />
                     </div>
+                    <h1 className="text-4xl md:text-5xl font-black uppercase tracking-tight">Agentic Workflow</h1>
                 </div>
-                <h1 className="text-4xl md:text-6xl font-black uppercase tracking-tight leading-none mb-4">
-                    Agentic Workflow
-                </h1>
-                <p className="text-lg md:text-xl font-mono text-gray-700 max-w-3xl mx-auto">
+                <p className="text-xl font-mono text-gray-600 max-w-3xl border-l-4 border-primary pl-4">
                     Four specialized AI agents operating in sequence. From raw citizen input to predictive modeling to deployment-ready action plans.
                 </p>
             </section>
@@ -166,14 +164,14 @@ export default function AgentsPage() {
             {/* Pipeline Visualizer */}
             <section className="max-w-7xl mx-auto px-4 md:px-6 mb-16">
                 <div className="border-4 border-neo-border bg-white p-6 md:p-8 shadow-[8px_8px_0px_0px_#163300] overflow-x-auto relative z-10">
-                    <div ref={flowRef} className="min-w-[800px] flex items-center justify-between relative py-4">
+                    <div ref={flowRef} className="min-w-max w-full flex items-center justify-center gap-6 lg:gap-12 xl:gap-16 relative py-4 px-4 mx-auto">
                         {/* Background connecting line */}
                         <div className="absolute top-1/2 left-12 right-12 h-1 bg-gray-200 -translate-y-1/2 z-0"></div>
                         {/* Animated overlay line */}
                         <div className="absolute top-1/2 left-12 h-1 w-[80%] -translate-y-1/2 z-0 agent-flow-line opacity-80"></div>
 
                         {/* Input Node */}
-                        <div className="flow-node relative z-10 flex flex-col items-center gap-4 w-32">
+                        <div className="flow-node relative z-10 flex flex-col items-center gap-4 w-28">
                             <div className="w-16 h-16 rounded-full border-3 border-neo-border bg-gray-100 flex items-center justify-center shadow-[3px_3px_0px_0px_#163300] hover:-translate-y-1 transition-all">
                                 <Database weight="fill" className="w-8 h-8" />
                             </div>

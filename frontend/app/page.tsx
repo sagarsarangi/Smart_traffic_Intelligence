@@ -269,7 +269,7 @@ export default function HomePage() {
                   Multilingual NLP Parsing
                 </div>
                 <div className="md:text-4xl text-2xl font-black text-neo-text tracking-tight uppercase">
-                  Gemini Action Plans
+                  Groq Action Plans
                 </div>
                 <div className="md:text-4xl text-2xl font-black text-neo-text tracking-tight uppercase">
                   Isolation Forest

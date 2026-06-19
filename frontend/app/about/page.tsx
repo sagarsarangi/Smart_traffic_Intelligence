@@ -244,7 +244,7 @@ export default function ArchitecturePage() {
                     {/* Tech stack bar at the bottom of the diagram */}
                     <div className="relative z-10 mt-8 pt-6 border-t-2 border-dashed border-gray-300">
                         <div className="flex flex-wrap gap-2 justify-center">
-                            {['FastAPI', 'XGBoost', 'Isolation Forest', 'Gemini Flash', 'Next.js', 'Leaflet.js', 'SSE Streaming'].map((tech, i) => (
+                            {['FastAPI', 'XGBoost', 'Isolation Forest', 'Groq', 'Next.js', 'Leaflet.js', 'SSE Streaming'].map((tech, i) => (
                                 <span key={i} className="px-3 py-1.5 border-2 border-neo-border font-mono text-[10px] font-bold uppercase bg-neo-bg hover:bg-primary transition-colors cursor-default">
                                     {tech}
                                 </span>

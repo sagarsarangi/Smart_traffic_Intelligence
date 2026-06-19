@@ -302,7 +302,7 @@ For planned events (`event_type == "planned"`), the prompt instructs pre-emptive
 
 ### `GET /anomaly`
 
-**Purpose:** Return current anomaly scores for all zones, updated every 0.09 seconds by the background replay loop.
+**Purpose:** Return current anomaly scores for all zones, updated every 0.07 seconds by the background replay loop.
 
 **Input:** None.
 
@@ -482,7 +482,7 @@ Models are serialized with joblib and loaded at server startup. Inference: < 100
 
 ### Agent 3 — Anomaly Detection Agent (Isolation Forest)
 
-**Triggered by:** Background `asyncio` task running every 0.09 seconds during the demo. Not triggered by user actions directly.
+**Triggered by:** Background `asyncio` task running every 0.07 seconds during the demo. Not triggered by user actions directly.
 
 **Grouping:** Records where `zone` is null are grouped by `police_station` instead, ensuring all 8,173 records contribute to the baseline.
 
@@ -494,7 +494,7 @@ Models are serialized with joblib and loaded at server startup. Inference: < 100
 
 Each combination becomes one row (a 3D feature vector). The Isolation Forest is trained on all rows.
 
-**Replay mechanism:** During the demo, the backend streams a small batch of chronological incidents every 0.09 seconds into a per-zone sliding-window deque (incidents older than 24 hours of simulated time are evicted). The three statistics are computed from this sliding window state per zone and fed to the Isolation Forest. When the dataset is exhausted, the replay loop stops and freezes at the final state.
+**Replay mechanism:** During the demo, the backend streams a small batch of chronological incidents every 0.07 seconds into a per-zone sliding-window deque (incidents older than 24 hours of simulated time are evicted). The three statistics are computed from this sliding window state per zone and fed to the Isolation Forest. When the dataset is exhausted, the replay loop stops and freezes at the final state.
 
 **Output per zone:**
 

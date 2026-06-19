@@ -177,7 +177,7 @@ async def startup_event() -> None:
 
     logger.info("Starting anomaly replay background task …")
     _background_tasks.append(asyncio.create_task(anomaly_replay_loop(df)))
-    logger.info("Anomaly replay task started (3 incidents / 0.09 s tick, UI polls every 13 s).")
+    logger.info("Anomaly replay task started (3 incidents / 0.07 s tick, UI polls every 13 s).")
 
     logger.info("Starting heatmap replay background task …")
     _background_tasks.append(asyncio.create_task(heatmap_replay_loop(df)))

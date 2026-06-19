@@ -1,173 +1,194 @@
-# 🚦 Smart Traffic Intelligence System
+# Smart Traffic Intelligence System
 
-> An AI-powered traffic forecasting and decision-support platform that helps authorities **predict congestion** caused by planned and unplanned events, **detect anomalies** before they escalate, and **auto-generate response plans** using Generative AI.
+![Status](https://img.shields.io/badge/Status-Deployed-success?style=for-the-badge)
+![Next.js](https://img.shields.io/badge/Frontend-Next.js_16-black?style=for-the-badge&logo=next.js)
+![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
+![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)
+![FastAPI](https://img.shields.io/badge/Backend-FastAPI-009688?style=for-the-badge&logo=fastapi)
+![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![scikit-learn](https://img.shields.io/badge/scikit--learn-%23F7931E.svg?style=for-the-badge&logo=scikit-learn&logoColor=white)
+![Pandas](https://img.shields.io/badge/pandas-%23150458.svg?style=for-the-badge&logo=pandas&logoColor=white)
+![NumPy](https://img.shields.io/badge/numpy-%23013243.svg?style=for-the-badge&logo=numpy&logoColor=white)
 
----
+An AI-powered traffic forecasting and decision-support platform built on a dataset of **8,173 real Bengaluru traffic incidents**. It helps authorities predict congestion caused by planned and unplanned events, detect anomalies before they escalate, and auto-generate response plans using Generative AI. By learning the actual congestion behaviors of Bengaluru's unique corridors, the system transitions city operations from reactive to proactive.
 
-## 🧩 Problem Statement
 
-Traffic authorities today react to congestion _after_ it happens — relying on experience-based decisions, manual patrols, and no post-event learning. This system flips that model:
+## Problem Statement
 
-- **Planned events** (rallies, cricket matches, festivals) → predict impact in advance
-- **Unplanned events** (breakdowns, accidents, waterlogging) → detect anomalies early
-- **Every event** → auto-generate a ready-to-act response plan via GenAI
+Traffic authorities today react to congestion after it happens, relying on experience-based decisions, manual patrols, and no post-event learning. This system solves that by utilizing historical city data to anticipate choke points before they form:
 
----
+*   **Planned events** (public gatherings, construction) are analyzed to predict impact in advance.
+*   **Unplanned events** (breakdowns, accidents) trigger early anomaly detection.
+*   **Every incident** is processed through GenAI to auto-generate a ready-to-act response plan.
 
-## ✨ Core Features
 
-| Feature                             | Description                                                          |
-| ----------------------------------- | -------------------------------------------------------------------- |
-| Event-based congestion prediction   | Forecast traffic volume and risk score for any upcoming event        |
-| Multilingual incident understanding | Auto-classify Kannada/mixed-language incident reports using NLP      |
-| GenAI action planner                | LLM-generated response plans — officers, barricades, diversions      |
-| Congestion heatmap                  | Dynamic City Replay map of historical and streaming congestion zones |
-| Anomaly detection                   | Detect unexpected traffic surges before they become jams             |
-| Interactive dashboard               | Real-time monitoring, alerts, and incident submission                |
+## System Architecture
 
----
+The architecture relies on a Next.js interactive frontend and a FastAPI backend that handles ML model inference, data processing, and integrations with Large Language Models.
 
-## 🧠 Machine Learning
-
-### Traffic Prediction
-
-- **Models:** XGBoost (Classifier & Regressor)
-- **Predicts:** Priority (High/Low) and estimated resolution time (minutes)
-- **Inputs:** Location, corridor frequency, time-of-day, zone, historical junction patterns, incident cause
-
-### Anomaly Detection
-
-- **Models:** Isolation Forest
-- **Detects:** Unexpected congestion surges and unplanned disruptions in real time (per zone)
-- **Output:** Alert severity score (Normal, Watch, Critical)
-
----
-
-## 🤖 GenAI Features
-
-### 1. Multilingual NLP — Incident Understanding
-
-Real-world incident descriptions in this dataset are written in Kannada, broken English, and mixed scripts (e.g. _"pipe vehicle off aagide saro"_). A standard rule-based system would discard this as noise.
-
-**What it does:**
-
-- Uses **Groq** to read free-text descriptions in any language (e.g. "ಬಿಎಂಟಿಸಿ ಬಸ್ ಕೆಟ್ಟು ನಿಂತಿದೆ ಸರ್") and automatically map them to the dataset's exact vocabulary (vehicle_breakdown, bmtc_bus, severity 2)., and generates an English summary
-- Auto-classifies the event so it feeds cleanly into the ML pipeline
-
-### 2. GenAI Action Planner — Automated Response Generation
-
-Once the ML model predicts priority and expected duration, a Large Language Model takes that output and generates a **complete, human-readable response plan**.
-
-**What it does:**
-
-- Receives: predicted priority, event type, corridor, duration estimate, junction name
-- Generates: officers to deploy, barricades, diversion routes, estimated clearance, escalation triggers, and public advisories
-- Output is in plain language, streamed in real-time, ready to be acted on immediately
-
-### 3. AI Geocoding & Location Resolution
-
-Instead of relying on rigid, pre-defined coordinates, the system uses Groq AI to dynamically resolve free-text area/zone names into precise latitude and longitude. Whether the user types "Koramangala 5th Block" or simply pastes a Kannada description with a zone name, the agent geocodes it. Ambiguous locations trigger an inline clarification modal so users can select the correct, exact spot. for high-confidence matches, dropping a live pin on the map.
-
-- Handles ambiguity by returning candidate locations and prompting the user to clarify via an interactive modal.
-
----
-
-## 🏗 System Architecture
-
-```
-Raw Incident Data (CSV)
-        │
-        ▼
-┌─────────────────────────┐
-│  FastAPI Backend        │
-│  (Data & Feature Eng.)  │
-└────────────┬────────────┘
-             │
-      ┌──────┴──────┐
-      ▼             ▼
-┌──────────┐  ┌──────────────┐
-│ XGBoost  │  │ Isolation    │
-│ Models   │  │ Forest       │
-│(Priority,│  │(Anomaly      │
-│ Duration)│  │ Detection)   │
-└────┬─────┘  └──────┬───────┘
-     │               │
-     └──────┬────────┘
-            ▼
-┌─────────────────────────┐
-│          Groq           │  ← NLP Parsing & Action Plans
-└────────────┬────────────┘
-             ▼
-┌─────────────────────────┐
-│ Next.js Interactive GUI │  ← React + Leaflet + Tailwind
-└─────────────────────────┘
+```mermaid
+graph TD
+    A[Raw Incident Data] -->|In-Memory Data Loader| B[FastAPI Backend]
+    
+    subgraph Machine Learning
+    C[XGBoost Classifier] 
+    D[XGBoost Regressor]
+    E[Isolation Forest]
+    end
+    
+    B -->|Feature Vector| C
+    B -->|Feature Vector| D
+    B -->|Time-Series Metrics| E
+    
+    C -->|Priority Prediction| B
+    D -->|Duration Estimate| B
+    E -->|Anomaly Scores| B
+    
+    subgraph Generative AI
+    F[Groq API]
+    end
+    
+    B <-->|NLP Parsing, Geocoding, Action Plans| F
+    
+    G[Next.js Interactive Dashboard] <-->|REST API & SSE Streams| B
 ```
 
----
+## Data Flow & Operations
 
-## 🛠 Tech Stack
+### 1. Incident Submission & Prediction Pipeline
+
+When an incident is reported, the system parses the input, resolves the exact geographic location, predicts the severity, and streams a live response plan back to the dashboard.
+
+```mermaid
+sequenceDiagram
+    participant UI as Next.js Dashboard
+    participant API as FastAPI Backend
+    participant LLM as Groq API
+    participant ML as XGBoost Models
+    
+    alt Structured Input Mode
+        UI->>UI: Gather Form Fields (Type, Cause, Corridor)
+    else Free-Text Mode
+        UI->>API: POST /nlp-parse (Description)
+        API->>LLM: Extract structured features
+        LLM-->>API: JSON properties
+        API-->>UI: Parsed features
+    end
+    
+    UI->>API: POST /geocode-zone (Zone string)
+    API->>LLM: Resolve geographic location
+    LLM-->>API: Coordinates {lat, lng}
+    API-->>UI: High-confidence coordinates
+    
+    UI->>API: POST /predict (Feature Vector)
+    API->>ML: Run classifier & regressor
+    ML-->>API: Inference results
+    API-->>UI: Priority & Duration estimate
+    
+    UI->>API: GET /action-plan (Full Context)
+    API->>LLM: Request 6-section response plan
+    LLM-->>API: SSE token chunks
+    API-->>UI: Stream text to Incident Panel
+```
+
+### 2. Live Anomaly Detection
+
+The system continuously evaluates traffic conditions across city zones to identify anomalous congestion patterns before they escalate.
+
+```mermaid
+sequenceDiagram
+    participant UI as Next.js Dashboard
+    participant API as FastAPI Backend
+    participant Task as Background Loop
+    participant IF as Isolation Forest
+    
+    loop Every 0.07s (Dataset Replay)
+        Task->>Task: Update sliding window (24h eviction)
+        Task->>IF: Compute metrics (count, ratio, duration)
+        IF-->>Task: Return Anomaly Scores
+        Task->>API: Update in-memory cache
+    end
+    
+    loop Every 10s
+        UI->>API: GET /anomaly
+        API-->>UI: Alert Levels (Normal/Watch/Critical)
+        UI->>UI: Update Map Polygons & Sidebar
+    end
+```
+
+### 3. Dynamic City Heatmap
+
+The system renders a visual representation of congestion severity. It defaults to a static layer of accumulated historical data, but features a "City Replay" mode that streams dynamic clusters in real-time.
+
+```mermaid
+flowchart TD
+    subgraph Backend Processing
+        A[Raw Dataset] -->|Load at Startup| B[Weight Calculation]
+        B -->|Priority: High=2, Low=1| C[Multiply by Normalized Duration]
+        C --> D[(Heatmap Memory Cache)]
+        E[New Live Incident Submitted] -->|Incremental Update| D
+    end
+
+    subgraph City Replay Mode
+        F[Background Stream Loop] -->|3 incidents / 0.06s| G[(Replay Accumulator)]
+    end
+
+    subgraph Frontend Map
+        D -->|GET /heatmap on load| H[Static Heatmap Layer]
+        G -->|GET /heatmap/replay polled every 5s| I[Dynamic Replay Layer]
+        E -->|Drops Persistent Red Pin| J[Incident Pin Layer]
+    end
+```
+
+
+## Core Features
+
+*   **Event-Based Congestion Prediction:** Forecast traffic volume and priority risk scores for any upcoming or ongoing event.
+*   **Multilingual Incident Understanding:** Automatically classify Kannada or mixed-language incident reports using NLP to extract actionable structured data.
+*   **GenAI Action Planner:** LLM-generated deployment plans specifying required officers, barricades, diversions, escalation triggers, and public advisories.
+*   **Dynamic Congestion Heatmap:** Real-time city replay map visualization of historical and streaming congestion zones.
+*   **Pre-emptive Anomaly Detection:** Detect unexpected traffic surges on a zone-by-zone basis.
+*   **AI Geocoding:** Dynamically resolve ambiguous or free-text area names into precise geographic coordinates.
+
+
+## Machine Learning Integration
+
+*   **Traffic Prediction Models:** XGBoost Classifier and Regressor models predicting priority (High/Low) and estimated resolution time (in minutes). Inputs include location, corridor frequency, time-of-day, zone, and incident cause.
+*   **Anomaly Detection:** Isolation Forest model monitoring unexpected congestion surges and unplanned disruptions, outputting alert severity scores.
+
+
+## Technology Stack
 
 ### Frontend
-
-- **Next.js (React)** — component-based UI
-- **TypeScript** — static typing
-- **Tailwind CSS** — styling
-- **Leaflet.js** — interactive map, heatmap
+*   **Next.js 16**
+*   **TypeScript**
+*   **Tailwind CSS**
+*   **Leaflet.js** (Interactive mapping and heatmaps)
+*   **Recharts** (Analytics and data visualization)
 
 ### Backend
+*   **Python 3**
+*   **FastAPI** (REST API, Server-Sent Events, background tasks)
+*   **AsyncIO**
 
-- **FastAPI** — REST API, SSE streaming, prediction endpoints
+### Machine Learning & Data Processing
+*   **Scikit-learn** (Preprocessing, Isolation Forest)
+*   **XGBoost** (Classification and regression models)
+*   **Pandas / NumPy** (In-memory data processing and feature engineering)
 
-### Machine Learning
+### Generative AI
+*   **Groq API** (NLP extraction, geocoding resolution, and action plan generation)
 
-- **Scikit-learn** — preprocessing, Isolation Forest
-- **XGBoost** — classification and regression models
-- **Pandas / NumPy** — data processing and feature engineering
 
-### GenAI / NLP
+## Dashboard Views
 
-- **Groq API** — NLP extraction and action plan generation
+1.  **Map View:** Full-screen Leaflet map displaying a historical or streaming heatmap, anomaly zone polygons, and a real-time alert sidebar.
+2.  **Submit Incident:** An intuitive form supporting both structured inputs and free-text NLP processing to simulate or report live incidents.
+3.  **Analytics:** Historical data charts displaying hourly volume profiles, a leaderboard of high-risk junctions, and planned versus unplanned monthly trends.
 
----
+All user interactions funnel into a shared **Incident Panel** drawer that displays predictions, streams the LLM-generated action plans, and collects user feedback.
 
-## 📊 Dashboard Views
+## Dataset Information
 
-| View                | What it shows                                                                                                 |
-| ------------------- | ------------------------------------------------------------------------------------------------------------- |
-| **Map View**        | Full-screen Leaflet map with historical/streaming heatmap, anomaly zone polygons, and real-time alert sidebar |
-| **Submit Incident** | Form with structured inputs and free-text NLP processing to simulate/report incidents                         |
-| **Analytics**       | Historical charts: hourly volume profile, top 15 high-risk junctions, planned vs unplanned monthly trends     |
-
-_All interactions funnel into a shared **Incident Panel** drawer that displays the prediction, streams the LLM action plan, and collects user feedback._
-
----
-
-## 🚀 MVP Scope
-
-- [x] Event input form (structured + NLP description)
-- [x] Traffic prediction engine (priority + duration)
-- [x] Groq API integration for incident parsing & action plans
-- [x] AI-powered geocoding for vague location resolution
-- [x] Dynamic Congestion heatmap with City Replay
-- [x] Real-time anomaly alert feed via Isolation Forest
-- [x] Post-plan user feedback collection
-
----
-
-## 📂 Dataset
-
-Built on real Bengaluru traffic incident data containing:
-
-- Planned and unplanned events, event causes, corridor rankings, resolution times, multilingual descriptions, zone and junction metadata (8,173 records total).
-
----
-
-## 🎯 Goal
-
-Enable traffic authorities to shift from **reactive** to **proactive** congestion management — using ML to forecast impact, NLP to understand incidents in any language, and GenAI to instantly generate deployment-ready response plans.
-
----
-
-## 👥 Team
-
-Built for **Smart City Hackathon** — Theme 2: Event-Driven + Anomaly-Based Traffic Congestion Prediction System
+The system is built on a real Bengaluru traffic incident dataset containing 8,173 records. The data includes both planned and unplanned events, specific causes, corridor rankings, multilingual descriptions, and zone/junction metadata.

@@ -9,12 +9,24 @@ import {
     fetchHeatmap,
     fetchHeatmapReplay,
     resetHeatmapReplay,
-    fetchIncidents,
     fetchAnomalyScores,
     predictIncident,
     resetAnomalyReplay,
 } from '../../lib/api';
-import { WarningCircle, ArrowRight, ListDashes, X, ArrowsClockwise, Play, Stop } from '@phosphor-icons/react';
+import { WarningCircle, ArrowRight, ListDashes, X, ArrowsClockwise, Play, Stop, Robot } from '@phosphor-icons/react';
+import type { IncidentPin } from '../../types/index';
+
+// ---------------------------------------------------------------------------
+// Available LLM models for anomaly plan generation (Agent 4 / Action Planner)
+// ---------------------------------------------------------------------------
+const MODEL_OPTIONS = [
+    { id: 'groq/compound-mini',      label: 'Compound Mini',  provider: 'Groq',   badge: 'Fast' },
+    { id: 'llama-3.1-8b-instant',    label: 'Llama 3.1 8B',  provider: 'Meta',   badge: 'Light' },
+    { id: 'openai/gpt-oss-120b',     label: 'GPT OSS 120B',  provider: 'OpenAI', badge: 'Large' },
+    { id: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B', provider: 'Meta',   badge: 'Smart' },
+] as const;
+type ModelId = typeof MODEL_OPTIONS[number]['id'];
+
 
 // ---------------------------------------------------------------------------
 // Heatmap Layer — updates the Leaflet heat layer whenever `points` changes.
@@ -145,16 +157,72 @@ const sortAnomalies = (zones: any[]) => {
 };
 
 // ---------------------------------------------------------------------------
+// IncidentPinLayer — renders a distinct red pin marker for each submitted incident
+// ---------------------------------------------------------------------------
+function IncidentPinLayer({ pins }: { pins: IncidentPin[] }) {
+    // Custom pulsing red divIcon so the pins are visually distinct from the heatmap
+    const pinIcon = L.divIcon({
+        className: '',
+        html: `
+            <div style="
+                position: relative;
+                width: 28px;
+                height: 36px;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+            ">
+                <div style="
+                    width: 20px;
+                    height: 20px;
+                    background: #ef4444;
+                    border: 3px solid #163300;
+                    border-radius: 50% 50% 50% 0;
+                    transform: rotate(-45deg);
+                    box-shadow: 1px 1px 3px rgba(0,0,0,0.4);
+                "></div>
+            </div>
+        `,
+        iconSize: [28, 36],
+        iconAnchor: [14, 36],
+        popupAnchor: [0, -36],
+    });
+
+    return (
+        <>
+            {pins.map(pin => (
+                <Marker key={pin.id} position={[pin.lat, pin.lng]} icon={pinIcon}>
+                    <Popup className="neo-pin-popup">
+                        <div style={{ fontFamily: 'monospace', fontSize: '12px', minWidth: '160px' }}>
+                            <div style={{ fontWeight: 'bold', fontSize: '13px', marginBottom: '4px', borderBottom: '2px solid #163300', paddingBottom: '4px' }}>
+                                📍 Submitted Incident
+                            </div>
+                            <div style={{ color: '#555', marginBottom: '2px' }}>Zone:</div>
+                            <div style={{ fontWeight: 'bold', marginBottom: '6px' }}>{pin.zone}</div>
+                            <div style={{ color: '#888', fontSize: '11px' }}>
+                                {pin.lat.toFixed(4)}, {pin.lng.toFixed(4)}
+                            </div>
+                        </div>
+                    </Popup>
+                </Marker>
+            ))}
+        </>
+    );
+}
+
+// ---------------------------------------------------------------------------
 // Props
 // ---------------------------------------------------------------------------
 interface MapViewProps {
     onOpenPanel: (data: any) => void;
+    /** Live incident pins from View 2 submissions — persists across map mode switches. */
+    incidentPins?: IncidentPin[];
 }
 
 // ---------------------------------------------------------------------------
 // MapView
 // ---------------------------------------------------------------------------
-export default function MapView({ onOpenPanel }: MapViewProps) {
+export default function MapView({ onOpenPanel, incidentPins = [] }: MapViewProps) {
     // ── Heatmap ─────────────────────────────────────────────────────────────
     // staticHeatmap: loaded once from /heatmap (full, pre-computed dataset)
     // replayHeatmap: polled from /heatmap/replay every 5 s when replay is active
@@ -166,7 +234,7 @@ export default function MapView({ onOpenPanel }: MapViewProps) {
     const activeHeatmap = replayStatus !== 'idle' ? replayHeatmap : staticHeatmap;
 
     // ── Map markers ─────────────────────────────────────────────────────────
-    const [incidents, setIncidents] = useState<any[]>([]);
+    // Removed incidents state as requested
 
     // ── Anomaly sidebar ─────────────────────────────────────────────────────
     const [anomalies, setAnomalies] = useState<any[]>([]);
@@ -174,6 +242,9 @@ export default function MapView({ onOpenPanel }: MapViewProps) {
         done: 0, total: 0, finished: false,
     });
     const [isAnomalyModalOpen, setIsAnomalyModalOpen] = useState(false);
+    // Zone data awaiting model selection before generating a plan (null = no picker shown)
+    const [anomalyModelPickerZone, setAnomalyModelPickerZone] = useState<any | null>(null);
+    const [anomalyPickerLoading, setAnomalyPickerLoading] = useState(false);
     // Bump this to restart the anomaly polling interval after a replay reset
     const [anomalyPollKey, setAnomalyPollKey] = useState(0);
 
@@ -197,17 +268,9 @@ export default function MapView({ onOpenPanel }: MapViewProps) {
         const load = async () => {
             setIsLoading(true);
             try {
-                const [heatRes, incRes] = await Promise.all([
-                    fetchHeatmap(),
-                    fetchIncidents(),
-                ]);
+                const heatRes = await fetchHeatmap();
                 if (heatRes && Array.isArray(heatRes)) {
                     setStaticHeatmap(heatRes.map((h: any) => [h.lat, h.lng, h.weight]));
-                }
-                if (incRes && Array.isArray(incRes)) {
-                    // Show up to 500 markers for rendering performance
-                    const src = Array.isArray(incRes) ? incRes : (incRes as any).incidents ?? [];
-                    setIncidents(src.slice(0, 500));
                 }
             } catch (err) {
                 console.error('Error loading initial map data:', err);
@@ -228,7 +291,7 @@ export default function MapView({ onOpenPanel }: MapViewProps) {
             }
         };
         poll();
-        const id = setInterval(poll, 5000);
+        const id = setInterval(poll, 13000);
         return () => clearInterval(id);
     }, [anomalyPollKey]);
 
@@ -297,27 +360,17 @@ export default function MapView({ onOpenPanel }: MapViewProps) {
         };
     }, []);
 
-    // ── Incident click handler ───────────────────────────────────────────────
-    const handleIncidentClick = async (incident: any) => {
-        const features = {
-            event_type: incident.event_type === 1 || incident.event_type === 'planned' ? 'planned' : 'unplanned',
-            corridor: incident.corridor || 'Non-corridor',
-            event_cause: incident.event_cause,
-            veh_type: incident.veh_type,
-            requires_road_closure: Boolean(incident.requires_road_closure),
-            start_datetime: incident.start_datetime || new Date().toISOString(),
-            zone: incident.zone || undefined,
-            junction: incident.junction || undefined,
-            planned_duration_minutes: 0,
-            address: incident.address,
-            police_station: incident.police_station,
-        };
-        const prediction = await predictIncident(features);
-        onOpenPanel({ ...incident, ...prediction, event_type: features.event_type });
-    };
+
 
     // ── Anomaly zone plan click handler ─────────────────────────────────────
-    const handleAnomalyPlanClick = async (zoneData: any) => {
+    // Step 1: user clicks "Generate Plan" → open model picker for that zone
+    const handleAnomalyPlanClick = (zoneData: any) => {
+        setAnomalyModelPickerZone(zoneData);
+    };
+
+    // Step 2: user picks a model in the picker → run predict + open panel
+    const handleAnomalyModelConfirm = async (zoneData: any, modelId: ModelId) => {
+        setAnomalyPickerLoading(true);
         const zoneFeatures = {
             event_type: 'unplanned',
             event_cause: 'congestion',
@@ -325,6 +378,9 @@ export default function MapView({ onOpenPanel }: MapViewProps) {
             start_datetime: new Date().toISOString(),
         };
         const prediction = await predictIncident(zoneFeatures);
+        setAnomalyPickerLoading(false);
+        setAnomalyModelPickerZone(null);
+        setIsAnomalyModalOpen(false);
         onOpenPanel({
             zone: zoneData.zone,
             event_cause: 'congestion',
@@ -333,17 +389,11 @@ export default function MapView({ onOpenPanel }: MapViewProps) {
             ...prediction,
             priority: zoneData.alert_level === 'Critical' ? 'High' : 'Low',
             confidence: Math.abs(zoneData.anomaly_score ?? 0),
+            selected_model: modelId,
         });
     };
 
-    // ── Marker icon factory ──────────────────────────────────────────────────
-    const createCustomIcon = (priority: string) =>
-        L.divIcon({
-            className: 'custom-div-icon',
-            html: `<div style="background-color:${priority === 'High' ? '#ef4444' : '#f59e0b'};width:12px;height:12px;border-radius:50%;border:2px solid #163300;box-shadow:2px 2px 0px #163300;"></div>`,
-            iconSize: [12, 12],
-            iconAnchor: [6, 6],
-        });
+
 
     // ── Render ───────────────────────────────────────────────────────────────
     return (
@@ -477,17 +527,51 @@ export default function MapView({ onOpenPanel }: MapViewProps) {
                                             <div className="text-gray-500">Avg Duration</div>
                                             <div className="font-bold text-right">{Math.round(anom.mean_duration || 0)}m</div>
                                         </div>
-                                        {(anom.alert_level === 'Critical' || anom.alert_level === 'Watch') && (
-                                            <button
-                                                onClick={() => {
-                                                    setIsAnomalyModalOpen(false);
-                                                    handleAnomalyPlanClick(anom);
-                                                }}
-                                                className="w-full btn-neo text-xs py-2 flex items-center justify-center gap-2 uppercase font-bold"
-                                            >
-                                                Generate Plan <ArrowRight size={14} weight="bold" />
-                                            </button>
-                                        )}
+                                    {(anom.alert_level === 'Critical' || anom.alert_level === 'Watch') && (
+                                        <>
+                                            {/* Model picker for THIS zone (inline) */}
+                                            {anomalyModelPickerZone?.zone === anom.zone ? (
+                                                <div className="border-2 border-neo-border bg-neo-bg p-3 space-y-2">
+                                                    <div className="flex items-center gap-2 font-mono font-bold text-xs uppercase">
+                                                        <Robot size={14} weight="bold" />
+                                                        Choose AI Model
+                                                    </div>
+                                                    <div className="grid grid-cols-2 gap-1.5">
+                                                        {MODEL_OPTIONS.map((opt) => (
+                                                            <button
+                                                                key={opt.id}
+                                                                disabled={anomalyPickerLoading}
+                                                                onClick={() => handleAnomalyModelConfirm(anom, opt.id)}
+                                                                className="flex flex-col items-start px-2 py-1.5 border-2 border-neo-border bg-white hover:bg-neo-primary font-mono text-left transition-all disabled:opacity-60 shadow-neo-sm hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px]"
+                                                            >
+                                                                <div className="flex items-center justify-between w-full gap-1">
+                                                                    <span className="text-[10px] font-bold uppercase truncate">{opt.label}</span>
+                                                                    <span className="text-[9px] font-bold px-1 py-0.5 border border-neo-border bg-neo-bg shrink-0">{opt.badge}</span>
+                                                                </div>
+                                                                <span className="text-[9px] text-gray-500">{opt.provider}</span>
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                    {anomalyPickerLoading && (
+                                                        <p className="text-[10px] font-mono text-center animate-pulse">Running prediction…</p>
+                                                    )}
+                                                    <button
+                                                        onClick={() => setAnomalyModelPickerZone(null)}
+                                                        className="w-full text-[10px] font-mono font-bold uppercase border border-neo-border py-1 bg-white hover:bg-red-100 transition-colors"
+                                                    >
+                                                        Cancel
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <button
+                                                    onClick={() => handleAnomalyPlanClick(anom)}
+                                                    className="w-full btn-neo text-xs py-2 flex items-center justify-center gap-2 uppercase font-bold"
+                                                >
+                                                    Generate Plan <ArrowRight size={14} weight="bold" />
+                                                </button>
+                                            )}
+                                        </>
+                                    )}
                                     </div>
                                 ))
                             )}
@@ -511,25 +595,10 @@ export default function MapView({ onOpenPanel }: MapViewProps) {
 
                 {activeHeatmap.length > 0 && <HeatmapLayer points={activeHeatmap} />}
 
-                {incidents.map((inc, idx) => (
-                    <Marker
-                        key={idx}
-                        position={[inc.lat, inc.lng]}
-                        icon={createCustomIcon(inc.priority)}
-                        eventHandlers={{ click: () => handleIncidentClick(inc) }}
-                    >
-                        <Popup className="font-mono neo-popup">
-                            <div className="font-bold mb-1">{inc.junction || inc.address || 'Unknown Location'}</div>
-                            <div className="text-xs mb-2">{inc.event_type} — {inc.priority}</div>
-                            <button
-                                onClick={(e) => { e.stopPropagation(); handleIncidentClick(inc); }}
-                                className="bg-neo-primary text-neo-text border-2 border-neo-border px-2 py-1 text-xs w-full uppercase font-bold hover:bg-neo-secondary"
-                            >
-                                View Details
-                            </button>
-                        </Popup>
-                    </Marker>
-                ))}
+                {/* Submitted incident pin markers — rendered above the heatmap */}
+                {incidentPins.length > 0 && <IncidentPinLayer pins={incidentPins} />}
+
+
 
                 {/* Zoom control — bottom-right so it doesn't collide with the sidebar */}
                 <div className="leaflet-bottom leaflet-right">

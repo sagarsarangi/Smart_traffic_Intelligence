@@ -402,7 +402,7 @@ export default function AnalyticsView() {
   );
 
   return (
-    <div className="w-full p-6 overflow-y-auto bg-neo-bg">
+    <div className="w-full h-full p-6 overflow-y-auto bg-neo-bg">
       {/* Header */}
       <div className="border-b-4 border-neo-border pb-5 mb-7 flex items-end justify-between flex-wrap gap-3">
         <div>

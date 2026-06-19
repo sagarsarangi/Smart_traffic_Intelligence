@@ -62,7 +62,7 @@ _detector: Optional[TrafficAnomalyDetector] = None
 
 # How many incidents to stream in per tick
 _INCIDENTS_PER_TICK = 3
-_REPLAY_INTERVAL_SECONDS = 0.066
+_REPLAY_INTERVAL_SECONDS = 0.09
 
 # Sliding-window size in hours of SIMULATED time.
 # 6h matches the average duration of the model's training 'time_buckets'

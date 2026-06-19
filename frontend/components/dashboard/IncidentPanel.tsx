@@ -34,7 +34,7 @@ export default function IncidentPanel({ isOpen, onClose, data }: IncidentPanelPr
 
             // Build the POST body. Exclude UI-only fields that the backend
             // does not expect (nlpResult is a frontend-only enrichment object).
-            const { nlpResult, ...rest } = data;
+            const { nlpResult, selected_model, ...rest } = data;
             const body: Record<string, any> = { ...rest };
 
             // Pass NLP fields as flat strings if the parse result is available.
@@ -65,6 +65,7 @@ export default function IncidentPanel({ isOpen, onClose, data }: IncidentPanelPr
                     setIsStreaming(false);
                 },
                 controller.signal,
+                selected_model || undefined,
             );
 
             return () => {
@@ -122,7 +123,7 @@ export default function IncidentPanel({ isOpen, onClose, data }: IncidentPanelPr
                     <h3 className="font-mono font-bold uppercase mb-3 border-b-2 border-neo-border pb-2">Context</h3>
                     <div className="grid grid-cols-2 gap-y-2 gap-x-4 text-sm font-mono">
                         <div className="text-gray-500">Address/Zone:</div>
-                        <div className="font-bold">{data.address || data.zone || 'Unknown'}</div>
+                        <div className="font-bold">{data.resolved_zone_name || data.address || data.zone || 'Unknown'}</div>
                         
                         <div className="text-gray-500">Junction:</div>
                         <div className="font-bold">{data.junction || 'N/A'}</div>
@@ -137,8 +138,20 @@ export default function IncidentPanel({ isOpen, onClose, data }: IncidentPanelPr
                         <div className="font-bold capitalize">
                             {data.event_type === 1 || data.event_type === 'planned' ? 'Planned' : 'Unplanned'}
                         </div>
+
+                        {/* Resolved coordinates — shown only for View 2 submissions */}
+                        {data.lat !== undefined && data.lng !== undefined && (
+                            <>
+                                <div className="text-gray-500 mt-1 pt-1 border-t border-gray-100">Pinned Location:</div>
+                                <div className="font-bold text-xs mt-1 pt-1 border-t border-gray-100 flex items-center gap-1">
+                                    <span className="text-red-500">📍</span>
+                                    {Number(data.lat).toFixed(4)}, {Number(data.lng).toFixed(4)}
+                                </div>
+                            </>
+                        )}
                     </div>
                 </div>
+
 
                 {/* 1.5 NLP Parse Result (if available) */}
                 {data.nlpResult && (
@@ -180,14 +193,21 @@ export default function IncidentPanel({ isOpen, onClose, data }: IncidentPanelPr
                 {/* 3. Action Plan Stream */}
                 {data.priority && (
                     <div className="neo-brutal-box p-4 bg-white relative">
-                        <h3 className="font-mono font-bold uppercase mb-3 border-b-2 border-neo-border pb-2">Action Plan</h3>
+                        <div className="flex items-center justify-between mb-3 border-b-2 border-neo-border pb-2">
+                            <h3 className="font-mono font-bold uppercase">Action Plan</h3>
+                            {data.selected_model && (
+                                <span className="text-[10px] font-mono font-bold px-2 py-1 bg-neo-bg border-2 border-neo-border uppercase tracking-wide">
+                                    {data.selected_model.replace('groq/', '').replace('openai/', '')}
+                                </span>
+                            )}
+                        </div>
                         {streamError ? (
                             <div className="p-3 bg-amber-100 border-2 border-amber-400 font-mono text-sm text-amber-800">
                                 ⚠ {streamError}
                             </div>
                         ) : (
-                            <div className="font-mono text-sm leading-relaxed whitespace-pre-wrap min-h-[150px]">
-                                {actionPlan || <span className="animate-pulse">Waiting for AI to generate plan...</span>}
+                            <div className="font-mono text-[15px] leading-[1.8] tracking-wide text-neo-text whitespace-pre-wrap break-words overflow-hidden w-full min-h-[150px] p-5 bg-neo-bg border-2 border-neo-border shadow-[4px_4px_0px_0px_rgba(0,0,0,0.1)]">
+                                {actionPlan || <span className="animate-pulse opacity-70">Waiting for AI to generate plan...</span>}
                             </div>
                         )}
                         {isStreaming && (

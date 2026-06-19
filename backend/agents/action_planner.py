@@ -2,12 +2,23 @@ import os
 import json
 import logging
 import re
-from typing import AsyncGenerator, Dict, Any
+from typing import AsyncGenerator, Dict, Any, Optional
 from urllib.parse import urlparse, urlunparse, parse_qsl, urlencode
 
 import requests
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Allowed LLM models for Agent 4 (Action Planner) — all routed via Groq API
+# ---------------------------------------------------------------------------
+ALLOWED_MODELS = [
+    "groq/compound-mini",
+    "llama-3.1-8b-instant",
+    "openai/gpt-oss-120b",
+    "llama-3.3-70b-versatile",
+]
+DEFAULT_MODEL = "groq/compound-mini"
 
 
 def sanitize_url(url: str) -> str:
@@ -34,17 +45,19 @@ class ActionPlannerAgent:
     """
 
     def __init__(self, api_key: str = None):
-        self.gemini_key = api_key or os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
-        self.model_name = "gemini-2.5-flash"
-        self.base_url = (
-            f"https://generativelanguage.googleapis.com/v1beta/models/"
-            f"{self.model_name}:streamGenerateContent"
-        )
+        self.groq_key = api_key or os.environ.get("GROQ_API_KEY")
+        self.default_model = DEFAULT_MODEL
+        self.base_url = "https://api.groq.com/openai/v1/chat/completions"
 
-        if self.gemini_key:
-            logger.info("Agent 4 (Action Planner) initialised with Google Gemini API.")
+        if self.groq_key:
+            logger.info(
+                "[Agent 4 - Action Planner] Initialised with Groq API. Default model: %s.",
+                self.default_model,
+            )
         else:
-            logger.warning("No API key found for Gemini in Agent 4. Using heuristic fallback stream.")
+            logger.warning(
+                "[Agent 4 - Action Planner] No Groq API key found. Using heuristic fallback stream."
+            )
 
     def _build_system_prompt(self) -> str:
         return (
@@ -129,41 +142,67 @@ class ActionPlannerAgent:
 
         return "\n".join(lines)
 
-    async def stream_plan(self, params: Dict[str, Any]) -> AsyncGenerator[str, None]:
+    async def stream_plan(
+        self,
+        params: Dict[str, Any],
+        model_name: Optional[str] = None,
+    ) -> AsyncGenerator[str, None]:
         """
-        Takes incident parameters, builds the prompts, calls the Gemini streaming API,
+        Takes incident parameters, builds the prompts, calls the Groq streaming API,
         and yields each text chunk as an SSE event.
+
+        Args:
+            params:     Full incident + prediction context dict.
+            model_name: Groq model ID to use for this call. Falls back to
+                        DEFAULT_MODEL if None or not in ALLOWED_MODELS.
+
         Falls back to a hardcoded structured plan if the API key is missing or fails.
         """
+        # Resolve and validate model
+        resolved_model = model_name if model_name in ALLOWED_MODELS else DEFAULT_MODEL
+        if model_name and model_name not in ALLOWED_MODELS:
+            logger.warning(
+                "[Agent 4 - Action Planner] Unknown model %r requested; falling back to %s.",
+                model_name,
+                DEFAULT_MODEL,
+            )
+
         user_prompt = self._build_user_prompt(params)
 
-        if not self.gemini_key:
-            logger.warning("WARNING: No Gemini API key found. Model not loaded.")
+        if not self.groq_key:
+            logger.warning(
+                "[Agent 4 - Action Planner] WARNING: No Groq API key found. Model not loaded."
+            )
             yield "data: WARNING: API key not found. Action Planner model is not loaded.\n\n"
             yield "data: [DONE]\n\n"
             return
 
-        url = f"{self.base_url}?key={self.gemini_key}&alt=sse"
-        headers = {"Content-Type": "application/json"}
+        # Log which model is handling this plan request
+        logger.info(
+            "[Agent 4 - Action Planner] Calling Groq API — model: %s | zone: %s | priority: %s",
+            resolved_model,
+            params.get("zone", "unknown"),
+            params.get("priority", "unknown"),
+        )
+
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.groq_key}",
+        }
         payload = {
-            "contents": [
-                {
-                    "role": "user",
-                    "parts": [{"text": user_prompt}],
-                }
+            "model": resolved_model,
+            "temperature": 0.3,
+            "max_tokens": 600,
+            "stream": True,
+            "messages": [
+                {"role": "system", "content": self._build_system_prompt()},
+                {"role": "user",   "content": user_prompt},
             ],
-            "systemInstruction": {
-                "parts": [{"text": self._build_system_prompt()}]
-            },
-            "generationConfig": {
-                "temperature": 0.3,
-                "maxOutputTokens": 600,
-            },
         }
 
         try:
             with requests.post(
-                url, headers=headers, json=payload, stream=True, timeout=30
+                self.base_url, headers=headers, json=payload, stream=True, timeout=30
             ) as resp:
                 resp.raise_for_status()
                 for raw_line in resp.iter_lines():
@@ -176,13 +215,10 @@ class ActionPlannerAgent:
                             break
                         try:
                             data_json = json.loads(data_str)
-                            candidates = data_json.get("candidates", [])
-                            for candidate in candidates:
-                                parts = candidate.get("content", {}).get("parts", [])
-                                for part in parts:
-                                    text = part.get("text", "")
-                                    if text:
-                                        yield f"data: {text}\n\n"
+                            delta = data_json["choices"][0].get("delta", {})
+                            text = delta.get("content", "")
+                            if text:
+                                yield f"data: {text}\n\n"
                         except (json.JSONDecodeError, KeyError):
                             continue
 
@@ -191,13 +227,21 @@ class ActionPlannerAgent:
             reason = exc.response.reason if exc.response is not None else "Error"
             safe_url = sanitize_url(exc.request.url) if (exc.request and exc.request.url) else "URL"
             safe_err = f"{status_code} Client Error: {reason} for url: {safe_url}"
-            logger.error("Gemini streaming error: %s", safe_err)
+            logger.error(
+                "[Agent 4 - Action Planner] Groq streaming error (model=%s): %s",
+                resolved_model,
+                safe_err,
+            )
             yield f"data: WARNING: API call failed ({safe_err}). Action Planner model is not loaded.\n\n"
             yield "data: [DONE]\n\n"
             return
         except Exception as exc:
-            safe_err = re.sub(r'([?&]key=)[^&\s"\']+', r'\1[REDACTED]', str(exc))
-            logger.error("Gemini streaming error: %s", safe_err)
+            safe_err = re.sub(r'(Bearer\s+)\S+', r'\1[REDACTED]', str(exc))
+            logger.error(
+                "[Agent 4 - Action Planner] Groq streaming error (model=%s): %s",
+                resolved_model,
+                safe_err,
+            )
             yield f"data: WARNING: API call failed ({safe_err}). Action Planner model is not loaded.\n\n"
             yield "data: [DONE]\n\n"
             return

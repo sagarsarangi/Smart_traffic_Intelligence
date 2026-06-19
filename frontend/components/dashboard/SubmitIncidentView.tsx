@@ -1,86 +1,203 @@
 import React, { useState } from 'react';
-import { parseNLPDescription, predictIncident } from '../../lib/api';
-import { TextAUnderline, ListBullets, MapPin, SpinnerGap } from '@phosphor-icons/react';
+import { parseNLPDescription, predictIncident, geocodeZone } from '../../lib/api';
+import { TextAUnderline, ListBullets, MapPin, SpinnerGap, Warning, Robot } from '@phosphor-icons/react';
+import ZoneClarificationModal from './ZoneClarificationModal';
+
+// ---------------------------------------------------------------------------
+// Available LLM models for Agent 1 (NLP) + Agent 4 (Action Planner)
+// All are routed through the Groq API — no extra keys needed.
+// ---------------------------------------------------------------------------
+const MODEL_OPTIONS = [
+    { id: 'groq/compound-mini',      label: 'Compound Mini',    provider: 'Groq',   badge: 'Fast' },
+    { id: 'llama-3.1-8b-instant',    label: 'Llama 3.1 8B',    provider: 'Meta',   badge: 'Light' },
+    { id: 'openai/gpt-oss-120b',     label: 'GPT OSS 120B',    provider: 'OpenAI', badge: 'Large' },
+    { id: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B',   provider: 'Meta',   badge: 'Smart' },
+] as const;
+
+type ModelId = typeof MODEL_OPTIONS[number]['id'];
+
+interface ResolvedLocation {
+    name: string;
+    lat: number;
+    lng: number;
+}
 
 interface SubmitIncidentViewProps {
     onOpenPanel: (data: any) => void;
+    /** Called after a successful submission with the resolved lat/lng pin. */
+    onPinDropped: (pin: { lat: number; lng: number; zone: string }) => void;
 }
 
-export default function SubmitIncidentView({ onOpenPanel }: SubmitIncidentViewProps) {
+export default function SubmitIncidentView({ onOpenPanel, onPinDropped }: SubmitIncidentViewProps) {
     const [mode, setMode] = useState<'nlp' | 'structured'>('nlp');
     const [description, setDescription] = useState('');
-    
+    const [selectedModel, setSelectedModel] = useState<ModelId | null>(null);
+
     // Structured state
     const [eventType, setEventType] = useState('0'); // 0 = unplanned, 1 = planned
     const [eventCause, setEventCause] = useState('vehicle_breakdown');
     const [zone, setZone] = useState('');
     const [corridorRank, setCorridorRank] = useState('0');
     const [vehType, setVehType] = useState('private_car');
-    
+
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setIsLoading(true);
+    // Geocoding / clarification state
+    const [isGeocoding, setIsGeocoding] = useState(false);
+    const [showClarification, setShowClarification] = useState(false);
+    const [clarificationCandidates, setClarificationCandidates] = useState<
+        { name: string; lat: number; lng: number }[]
+    >([]);
+    // Resolved location — set once the user confirms (either automatically or via modal)
+    const [resolvedLocation, setResolvedLocation] = useState<ResolvedLocation | null>(null);
+
+    // ---------------------------------------------------------------------------
+    // Geocoding step — called on submit before predict
+    // ---------------------------------------------------------------------------
+
+    /**
+     * Attempts to geocode the current zone string.
+     * Returns the resolved location on success, or null if we need to show
+     * the clarification modal or surface an error.
+     *
+     * Side effects: sets isGeocoding, error, showClarification state.
+     */
+    const resolveZone = async (zoneStr: string): Promise<ResolvedLocation | null> => {
+        setIsGeocoding(true);
         setError(null);
 
+        const result = await geocodeZone(zoneStr);
+        setIsGeocoding(false);
+
+        if (result.confidence === 'high' && result.lat !== undefined && result.lng !== undefined) {
+            return {
+                name: result.resolved_name || zoneStr,
+                lat: result.lat,
+                lng: result.lng,
+            };
+        }
+
+        if (result.confidence === 'ambiguous' && result.candidates?.length) {
+            setClarificationCandidates(result.candidates);
+            setShowClarification(true);
+            // Resolution happens via the modal callback
+            return null;
+        }
+
+        // Failed
+        setError(
+            result.message ||
+            'Could not resolve this location. Try a more specific name or add a landmark.'
+        );
+        return null;
+    };
+
+    // ---------------------------------------------------------------------------
+    // Main submit handler
+    // ---------------------------------------------------------------------------
+
+    const runPrediction = async (
+        location: ResolvedLocation,
+        nlpResult: any,
+        featuresOverride?: any
+    ) => {
+        const corridorNames: Record<string, string> = {
+            '0': 'Non-corridor',
+            '1': 'ORR East 1',
+            '2': 'Hosur Road',
+        };
+
+        const eventTypeStr = eventType === '1' ? 'planned' : 'unplanned';
+
+        let features: any = featuresOverride || {
+            event_type: eventTypeStr,
+            corridor: corridorNames[corridorRank] || 'Non-corridor',
+            event_cause: eventCause,
+            veh_type: vehType,
+            requires_road_closure: false,
+            start_datetime: new Date().toISOString(),
+            zone: location.name,
+            planned_duration_minutes: eventTypeStr === 'planned' ? 60 : 0,
+            // Resolved coordinates sent to the backend for heatmap placement
+            lat: location.lat,
+            lng: location.lng,
+        };
+
+        if (mode === 'nlp' && nlpResult) {
+            features.event_cause = nlpResult.root_cause || features.event_cause;
+            if (nlpResult.vehicle_type) features.veh_type = nlpResult.vehicle_type;
+        }
+
+        const prediction = await predictIncident(features);
+
+        if (!prediction) {
+            throw new Error('Failed to get prediction from the backend');
+        }
+
+        // Drop a pin on the city map
+        onPinDropped({ lat: location.lat, lng: location.lng, zone: location.name });
+
+        onOpenPanel({
+            ...features,
+            ...prediction,
+            nlpResult,
+            event_type: features.event_type,
+            event_cause: features.event_cause,
+            // Coordinates shown in the IncidentPanel Context section
+            lat: location.lat,
+            lng: location.lng,
+            resolved_zone_name: location.name,
+            // Pass selected model so IncidentPanel forwards it to the action planner
+            selected_model: selectedModel || undefined,
+        });
+
+        // Clear form
+        if (mode === 'nlp') setDescription('');
+        setZone('');
+        setResolvedLocation(null);
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setError(null);
+
+        // ── Validate zone is present ─────────────────────────────────────────
+        const zoneStr = zone.trim();
+        if (!zoneStr) {
+            setError('Zone / Area is required. Please enter the location of the incident.');
+            return;
+        }
+
+        // ── Validate description for NLP mode ────────────────────────────────
+        if (mode === 'nlp' && !description.trim()) {
+            setError('Please enter an incident description.');
+            return;
+        }
+
+        setIsLoading(true);
+
         try {
-            // Map corridor rank selector value to a corridor name string.
-            // The backend derives corridor_rank from the corridor name internally.
-            const corridorNames: Record<string, string> = {
-                '0': 'Non-corridor',
-                '1': 'ORR East 1',
-                '2': 'Hosur Road',
-            };
-
-            const eventTypeStr = eventType === '1' ? 'planned' : 'unplanned';
-
-            let features: any = {
-                event_type: eventTypeStr,
-                corridor: corridorNames[corridorRank] || 'Non-corridor',
-                event_cause: eventCause,
-                veh_type: vehType,
-                requires_road_closure: false,
-                start_datetime: new Date().toISOString(),
-                zone: zone || undefined,
-                planned_duration_minutes: eventTypeStr === 'planned' ? 60 : 0,
-            };
-
+            // ── Step 1: NLP parse (if in NLP mode) ───────────────────────────
             let nlpResult = null;
-
             if (mode === 'nlp') {
-                if (!description.trim()) {
-                    throw new Error("Please enter a description");
-                }
-                nlpResult = await parseNLPDescription(description);
-                if (nlpResult) {
-                    // Overlay NLP extraction onto features
-                    features.event_cause = nlpResult.root_cause || features.event_cause;
-                    if (nlpResult.vehicle_type) {
-                        features.veh_type = nlpResult.vehicle_type;
-                    }
-                }
+                nlpResult = await parseNLPDescription(description, selectedModel || undefined);
             }
 
-            const prediction = await predictIncident(features);
-            
-            if (!prediction) {
-                throw new Error("Failed to get prediction from the backend");
+            // ── Step 2: Geocode the zone ──────────────────────────────────────
+            const location = await resolveZone(zoneStr);
+
+            if (!location) {
+                // Either the clarification modal opened (ambiguous)
+                // or an error was already set (failed). Stop here.
+                // Store nlpResult so the modal callback can use it.
+                setIsLoading(false);
+                return;
             }
 
-            onOpenPanel({
-                ...features,
-                ...prediction,
-                nlpResult,       // Pass the NLP result to display in the panel
-                // Ensure string event_type is preserved for the action planner
-                event_type: eventTypeStr,
-                event_cause: features.event_cause,
-            });
-            
-            // Clear form
-            if (mode === 'nlp') setDescription('');
-            
+            // ── Step 3: Predict + open panel ─────────────────────────────────
+            await runPrediction(location, nlpResult);
+
         } catch (err: any) {
             setError(err.message || 'An error occurred during submission.');
         } finally {
@@ -88,166 +205,271 @@ export default function SubmitIncidentView({ onOpenPanel }: SubmitIncidentViewPr
         }
     };
 
+    // Called when the user picks/confirms a location from the clarification modal
+    const handleClarificationConfirm = async (loc: ResolvedLocation) => {
+        setShowClarification(false);
+        setClarificationCandidates([]);
+        setResolvedLocation(loc);
+        setIsLoading(true);
+
+        try {
+            let nlpResult = null;
+            if (mode === 'nlp' && description.trim()) {
+                nlpResult = await parseNLPDescription(description, selectedModel || undefined);
+            }
+            await runPrediction(loc, nlpResult);
+        } catch (err: any) {
+            setError(err.message || 'An error occurred during submission.');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleClarificationCancel = () => {
+        setShowClarification(false);
+        setClarificationCandidates([]);
+        setIsLoading(false);
+    };
+
+    const isBusy = isLoading || isGeocoding;
+
     return (
-        <div className="flex justify-center p-8 w-full">
-            <div className="neo-brutal-box p-8 bg-white max-w-2xl w-full h-fit">
-                <h2 className="font-mono text-2xl font-bold uppercase mb-6 border-b-4 border-neo-border pb-2 flex items-center gap-3">
-                    <MapPin weight="bold" />
-                    Submit New Incident
-                </h2>
-
-                {/* Mode Toggles */}
-                <div className="flex mb-8 border-3 border-neo-border">
-                    <button
-                        type="button"
-                        onClick={() => setMode('nlp')}
-                        className={`flex-1 py-3 font-mono font-bold uppercase flex justify-center items-center gap-2 transition-all ${
-                            mode === 'nlp' ? 'bg-neo-primary text-neo-text' : 'bg-white hover:bg-neo-secondary'
-                        }`}
-                    >
-                        <TextAUnderline size={20} weight="bold" />
-                        Raw Text
-                    </button>
-                    <div className="w-[3px] bg-neo-border" />
-                    <button
-                        type="button"
-                        onClick={() => setMode('structured')}
-                        className={`flex-1 py-3 font-mono font-bold uppercase flex justify-center items-center gap-2 transition-all ${
-                            mode === 'structured' ? 'bg-neo-primary text-neo-text' : 'bg-white hover:bg-neo-secondary'
-                        }`}
-                    >
-                        <ListBullets size={20} weight="bold" />
-                        Structured
-                    </button>
+        <div className="relative w-full h-full flex flex-col">
+            {/* Clarification modal — rendered as an absolute overlay over the entire submit view */}
+            {showClarification && (
+                <div className="absolute inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-start justify-center p-0 md:p-8 overflow-y-auto">
+                    <ZoneClarificationModal
+                        initialZone={zone}
+                        initialCandidates={clarificationCandidates}
+                        onConfirm={handleClarificationConfirm}
+                        onCancel={handleClarificationCancel}
+                    />
                 </div>
+            )}
 
-                {error && (
-                    <div className="mb-6 p-4 bg-red-100 border-3 border-neo-border font-mono text-sm text-red-600 font-bold">
-                        {error}
+            <div className={`flex-1 flex justify-center p-8 w-full ${showClarification ? 'overflow-hidden' : 'overflow-y-auto'}`}>
+                <div className="neo-brutal-box p-8 bg-white max-w-2xl w-full h-fit">
+                    <h2 className="font-mono text-2xl font-bold uppercase mb-6 border-b-4 border-neo-border pb-2 flex items-center gap-3">
+                        <MapPin weight="bold" />
+                        Submit New Incident
+                    </h2>
+
+                    {/* Mode Toggles */}
+                    <div className="flex mb-8 border-3 border-neo-border">
+                        <button
+                            type="button"
+                            onClick={() => setMode('nlp')}
+                            className={`flex-1 py-3 font-mono font-bold uppercase flex justify-center items-center gap-2 transition-all ${
+                                mode === 'nlp' ? 'bg-neo-primary text-neo-text' : 'bg-white hover:bg-neo-secondary'
+                            }`}
+                        >
+                            <TextAUnderline size={20} weight="bold" />
+                            Raw Text
+                        </button>
+                        <div className="w-[3px] bg-neo-border" />
+                        <button
+                            type="button"
+                            onClick={() => setMode('structured')}
+                            className={`flex-1 py-3 font-mono font-bold uppercase flex justify-center items-center gap-2 transition-all ${
+                                mode === 'structured' ? 'bg-neo-primary text-neo-text' : 'bg-white hover:bg-neo-secondary'
+                            }`}
+                        >
+                            <ListBullets size={20} weight="bold" />
+                            Structured
+                        </button>
                     </div>
-                )}
 
-                <form onSubmit={handleSubmit} className="space-y-6">
-                    {mode === 'nlp' ? (
-                        <div className="space-y-2">
-                            <label className="block font-mono font-bold uppercase text-sm">
-                                Describe the incident (Any language)
-                            </label>
-                            <textarea
-                                value={description}
-                                onChange={(e) => setDescription(e.target.value)}
-                                className="w-full border-3 border-neo-border p-4 h-40 focus:outline-none focus:ring-4 focus:ring-neo-primary font-mono text-sm resize-none bg-neo-bg"
-                                placeholder="e.g., ಬಿಎಂಟಿಸಿ ಬಸ್ ಕೆಟ್ಟು ನಿಂತಿದೆ ಸರ್ (BMTC bus broken down)"
-                            />
-                            <p className="text-xs font-mono text-gray-500 mt-2">
-                                Our AI will automatically extract the cause, severity, and vehicle type.
-                            </p>
-                            
-                            {/* Optional Zone field even in NLP */}
-                            <div className="space-y-2 mt-4">
-                                <label className="block font-mono font-bold uppercase text-sm">Zone / Area (Optional)</label>
-                                <input
-                                    type="text"
-                                    value={zone}
-                                    onChange={(e) => setZone(e.target.value)}
-                                    className="w-full border-3 border-neo-border p-3 focus:outline-none focus:ring-4 focus:ring-neo-primary font-mono text-sm bg-neo-bg"
-                                    placeholder="e.g., HSR Layout"
-                                />
-                            </div>
+                    {error && (
+                        <div className="mb-6 p-4 bg-red-100 border-3 border-neo-border font-mono text-sm text-red-700 font-bold flex items-start gap-2">
+                            <Warning size={18} weight="bold" className="flex-shrink-0 mt-0.5" />
+                            {error}
                         </div>
-                    ) : (
-                        <div className="space-y-6">
-                            <div className="grid grid-cols-2 gap-6">
-                                <div className="space-y-2">
-                                    <label className="block font-mono font-bold uppercase text-sm">Event Type</label>
-                                    <select 
-                                        value={eventType} 
-                                        onChange={(e) => setEventType(e.target.value)}
-                                        className="w-full border-3 border-neo-border p-3 focus:outline-none focus:ring-4 focus:ring-neo-primary font-mono text-sm bg-neo-bg"
-                                    >
-                                        <option value="0">Unplanned</option>
-                                        <option value="1">Planned</option>
-                                    </select>
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="block font-mono font-bold uppercase text-sm">Corridor Type</label>
-                                    <select 
-                                        value={corridorRank} 
-                                        onChange={(e) => setCorridorRank(e.target.value)}
-                                        className="w-full border-3 border-neo-border p-3 focus:outline-none focus:ring-4 focus:ring-neo-primary font-mono text-sm bg-neo-bg"
-                                    >
-                                        <option value="0">Non-corridor</option>
-                                        <option value="1">ORR Variants</option>
-                                        <option value="2">Major Named Corridor</option>
-                                    </select>
-                                </div>
-                            </div>
+                    )}
 
-                            <div className="space-y-2">
-                                <label className="block font-mono font-bold uppercase text-sm">Event Cause</label>
-                                <select 
-                                    value={eventCause} 
-                                    onChange={(e) => setEventCause(e.target.value)}
-                                    className="w-full border-3 border-neo-border p-3 focus:outline-none focus:ring-4 focus:ring-neo-primary font-mono text-sm bg-neo-bg"
-                                >
-                                    <option value="vehicle_breakdown">Vehicle Breakdown</option>
-                                    <option value="tree_fall">Tree Fall</option>
-                                    <option value="accident">Accident</option>
-                                    <option value="water_logging">Water Logging</option>
-                                    <option value="pot_holes">Potholes</option>
-                                    <option value="construction">Construction</option>
-                                    <option value="public_event">Public Event</option>
-                                    <option value="others">Others</option>
-                                </select>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-6">
+                    <form onSubmit={handleSubmit} className="space-y-6">
+                        {mode === 'nlp' ? (
+                            <div className="space-y-5">
                                 <div className="space-y-2">
-                                    <label className="block font-mono font-bold uppercase text-sm">Zone / Area</label>
+                                    <label className="block font-mono font-bold uppercase text-sm flex items-center gap-1">
+                                        Describe the incident (Any language)
+                                        <span className="text-red-500 ml-0.5">*</span>
+                                    </label>
+                                    <textarea
+                                        value={description}
+                                        onChange={(e) => setDescription(e.target.value)}
+                                        className="w-full border-3 border-neo-border p-4 h-40 focus:outline-none focus:ring-4 focus:ring-neo-primary font-mono text-sm resize-none bg-neo-bg"
+                                        placeholder="e.g., ಬಿಎಂಟಿಸಿ ಬಸ್ ಕೆಟ್ಟು ನಿಂತಿದೆ ಸರ್ (BMTC bus broken down)"
+                                        required
+                                    />
+                                    <p className="text-xs font-mono text-gray-500">
+                                        Our AI will automatically extract the cause, severity, and vehicle type.
+                                    </p>
+                                </div>
+
+                                {/* Zone — REQUIRED in NLP mode */}
+                                <div className="space-y-2">
+                                    <label className="block font-mono font-bold uppercase text-sm flex items-center gap-1">
+                                        Zone / Area
+                                        <span className="text-red-500 ml-0.5">*</span>
+                                    </label>
                                     <input
                                         type="text"
                                         value={zone}
                                         onChange={(e) => setZone(e.target.value)}
                                         className="w-full border-3 border-neo-border p-3 focus:outline-none focus:ring-4 focus:ring-neo-primary font-mono text-sm bg-neo-bg"
-                                        placeholder="e.g., Koramangala"
+                                        placeholder="e.g., HSR Layout, Silk Board, Whitefield"
+                                        required
                                     />
+                                    <p className="text-xs font-mono text-gray-400">
+                                        Required — AI will resolve the exact coordinates for this area.
+                                    </p>
                                 </div>
+                            </div>
+                        ) : (
+                            <div className="space-y-6">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="space-y-2">
+                                        <label className="block font-mono font-bold uppercase text-sm flex items-center gap-1">
+                                            Event Type
+                                            <span className="text-red-500 ml-0.5">*</span>
+                                        </label>
+                                        <select
+                                            value={eventType}
+                                            onChange={(e) => setEventType(e.target.value)}
+                                            className="w-full border-3 border-neo-border p-3 focus:outline-none focus:ring-4 focus:ring-neo-primary font-mono text-sm bg-neo-bg truncate min-w-0"
+                                        >
+                                            <option value="0">Unplanned</option>
+                                            <option value="1">Planned</option>
+                                        </select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="block font-mono font-bold uppercase text-sm flex items-center gap-1">
+                                            Corridor Type
+                                            <span className="text-red-500 ml-0.5">*</span>
+                                        </label>
+                                        <select
+                                            value={corridorRank}
+                                            onChange={(e) => setCorridorRank(e.target.value)}
+                                            className="w-full border-3 border-neo-border p-3 focus:outline-none focus:ring-4 focus:ring-neo-primary font-mono text-sm bg-neo-bg truncate min-w-0"
+                                        >
+                                            <option value="0">Non-corridor</option>
+                                            <option value="1">ORR Variants</option>
+                                            <option value="2">Major Named Corridor</option>
+                                        </select>
+                                    </div>
+                                </div>
+
                                 <div className="space-y-2">
-                                    <label className="block font-mono font-bold uppercase text-sm">Vehicle Type</label>
-                                    <select 
-                                        value={vehType} 
-                                        onChange={(e) => setVehType(e.target.value)}
-                                        className="w-full border-3 border-neo-border p-3 focus:outline-none focus:ring-4 focus:ring-neo-primary font-mono text-sm bg-neo-bg"
+                                    <label className="block font-mono font-bold uppercase text-sm flex items-center gap-1">
+                                        Event Cause
+                                        <span className="text-red-500 ml-0.5">*</span>
+                                    </label>
+                                    <select
+                                        value={eventCause}
+                                        onChange={(e) => setEventCause(e.target.value)}
+                                        className="w-full border-3 border-neo-border p-3 focus:outline-none focus:ring-4 focus:ring-neo-primary font-mono text-sm bg-neo-bg truncate min-w-0"
                                     >
-                                        <option value="private_car">Private Car</option>
-                                        <option value="two_wheeler">Two Wheeler</option>
-                                        <option value="bmtc_bus">BMTC Bus</option>
-                                        <option value="heavy_vehicle">Heavy Vehicle</option>
-                                        <option value="auto">Auto Rickshaw</option>
+                                        <option value="vehicle_breakdown">Vehicle Breakdown</option>
+                                        <option value="tree_fall">Tree Fall</option>
+                                        <option value="accident">Accident</option>
+                                        <option value="water_logging">Water Logging</option>
+                                        <option value="pot_holes">Potholes</option>
+                                        <option value="construction">Construction</option>
+                                        <option value="public_event">Public Event</option>
                                         <option value="others">Others</option>
                                     </select>
                                 </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    {/* Zone — REQUIRED in Structured mode */}
+                                    <div className="space-y-2">
+                                        <label className="block font-mono font-bold uppercase text-sm flex items-center gap-1">
+                                            Zone / Area
+                                            <span className="text-red-500 ml-0.5">*</span>
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={zone}
+                                            onChange={(e) => setZone(e.target.value)}
+                                            className="w-full border-3 border-neo-border p-3 focus:outline-none focus:ring-4 focus:ring-neo-primary font-mono text-sm bg-neo-bg"
+                                            placeholder="e.g., Koramangala"
+                                            required
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="block font-mono font-bold uppercase text-sm flex items-center gap-1">
+                                            Vehicle Type
+                                            <span className="text-red-500 ml-0.5">*</span>
+                                        </label>
+                                        <select
+                                            value={vehType}
+                                            onChange={(e) => setVehType(e.target.value)}
+                                            className="w-full border-3 border-neo-border p-3 focus:outline-none focus:ring-4 focus:ring-neo-primary font-mono text-sm bg-neo-bg truncate min-w-0"
+                                        >
+                                            <option value="private_car">Private Car</option>
+                                            <option value="two_wheeler">Two Wheeler</option>
+                                            <option value="bmtc_bus">BMTC Bus</option>
+                                            <option value="heavy_vehicle">Heavy Vehicle</option>
+                                            <option value="auto">Auto Rickshaw</option>
+                                            <option value="others">Others</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* ── AI Model Selector ─────────────────────────────────── */}
+                        <div className="pt-2 space-y-2">
+                            <label className="block font-mono font-bold uppercase text-sm flex items-center gap-2">
+                                <Robot size={16} weight="bold" />
+                                <span>AI Model <span className="text-red-500 ml-0.5">*</span></span>
+                                <span className="text-xs font-normal normal-case text-gray-400 ml-1">(Agent 1 NLP + Agent 4 Plan)</span>
+                            </label>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                {MODEL_OPTIONS.map((opt) => (
+                                    <button
+                                        key={opt.id}
+                                        type="button"
+                                        onClick={() => setSelectedModel(opt.id)}
+                                        className={`relative flex flex-col items-start px-3 py-2 border-3 font-mono text-left transition-all ${
+                                            selectedModel === opt.id
+                                                ? 'border-neo-border bg-neo-primary shadow-none translate-x-[2px] translate-y-[2px]'
+                                                : 'border-neo-border bg-white hover:bg-neo-secondary shadow-neo-sm hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none'
+                                        }`}
+                                    >
+                                        <div className="flex items-center justify-between w-full gap-1">
+                                            <span className="text-xs font-bold uppercase truncate">{opt.label}</span>
+                                            <span className={`text-[10px] font-bold px-1.5 py-0.5 border border-neo-border shrink-0 ${
+                                                selectedModel === opt.id ? 'bg-white text-neo-text' : 'bg-neo-bg text-gray-600'
+                                            }`}>{opt.badge}</span>
+                                        </div>
+                                        <span className="text-[10px] text-gray-500 mt-0.5">{opt.provider}</span>
+                                    </button>
+                                ))}
                             </div>
                         </div>
-                    )}
 
-                    <div className="pt-4">
-                        <button
-                            type="submit"
-                            disabled={isLoading}
-                            className="w-full btn-neo py-4 text-lg font-bold font-mono uppercase flex justify-center items-center gap-3 disabled:opacity-70 disabled:cursor-not-allowed"
-                        >
-                            {isLoading ? (
-                                <>
-                                    <SpinnerGap size={24} className="animate-spin" />
-                                    Processing...
-                                </>
-                            ) : (
-                                'Analyze & Generate Plan'
-                            )}
-                        </button>
-                    </div>
-                </form>
+                        <div className="pt-4">
+                            <button
+                                type="submit"
+                                disabled={isBusy || !selectedModel}
+                                className="w-full btn-neo py-4 text-lg font-bold font-mono uppercase flex justify-center items-center gap-3 disabled:opacity-70 disabled:cursor-not-allowed"
+                            >
+                                {isBusy ? (
+                                    <>
+                                        <SpinnerGap size={24} className="animate-spin" />
+                                        {isGeocoding ? 'Resolving Location…' : 'Processing…'}
+                                    </>
+                                ) : (
+                                    'Analyze & Generate Plan'
+                                )}
+                            </button>
+                            <p className="text-center text-xs font-mono text-gray-400 mt-2">
+                                <span className="text-red-500">*</span> Zone / Area and AI Model are required for submission
+                            </p>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
     );

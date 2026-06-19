@@ -6,6 +6,7 @@ import SubmitIncidentView from '../../components/dashboard/SubmitIncidentView';
 import AnalyticsView from '../../components/dashboard/AnalyticsView';
 import IncidentPanel from '../../components/dashboard/IncidentPanel';
 import { MapTrifold, Plus, ChartBar } from '@phosphor-icons/react';
+import type { IncidentPin } from '../../types/index';
 
 // Leaflet map needs to be dynamically imported with ssr: false
 const MapView = dynamic(() => import('../../components/dashboard/MapView'), {
@@ -26,6 +27,17 @@ export default function DashboardPage() {
     const [panelData, setPanelData] = useState<any>(null);
     const [isPanelOpen, setIsPanelOpen] = useState(false);
 
+    // ── Incident pins — shared between SubmitIncidentView and MapView ──────────
+    // Accumulated over the session; survive view switches but reset on page refresh.
+    const [incidentPins, setIncidentPins] = useState<IncidentPin[]>([]);
+
+    const addIncidentPin = (pin: { lat: number; lng: number; zone: string }) => {
+        setIncidentPins(prev => [
+            ...prev,
+            { ...pin, id: `pin-${Date.now()}-${Math.random().toString(36).slice(2)}` },
+        ]);
+    };
+
     const openPanelWithData = (data: any) => {
         setPanelData(data);
         setIsPanelOpen(true);
@@ -45,6 +57,11 @@ export default function DashboardPage() {
                 >
                     <MapTrifold size={22} weight="bold" className="flex-shrink-0" />
                     City Map
+                    {incidentPins.length > 0 && (
+                        <span className="ml-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border-2 border-neo-border">
+                            {incidentPins.length}
+                        </span>
+                    )}
                 </button>
                 <button
                     onClick={() => setActiveView('submit')}
@@ -64,27 +81,37 @@ export default function DashboardPage() {
 
             {/* Main Content Area */}
             <div className="flex-1 relative flex overflow-hidden">
-                <div className="flex-1 overflow-y-auto bg-grid relative">
-                    {activeView === 'map' && <MapView onOpenPanel={openPanelWithData} />}
-                    {activeView === 'submit' && <SubmitIncidentView onOpenPanel={openPanelWithData} />}
+                <div className="flex-1 bg-grid relative flex flex-col overflow-hidden">
+                    {activeView === 'map' && (
+                        <MapView
+                            onOpenPanel={openPanelWithData}
+                            incidentPins={incidentPins}
+                        />
+                    )}
+                    {activeView === 'submit' && (
+                        <SubmitIncidentView
+                            onOpenPanel={openPanelWithData}
+                            onPinDropped={addIncidentPin}
+                        />
+                    )}
                     {activeView === 'analytics' && <AnalyticsView />}
                 </div>
 
                 {/* Incident Panel Drawer */}
-                <div 
-                    className={`absolute top-0 right-0 h-full w-full md:w-[500px] bg-white border-l-4 border-neo-border transform transition-transform duration-300 z-30 shadow-[-8px_0_0_0_rgba(22,51,0,1)] ${isPanelOpen ? 'translate-x-0' : 'translate-x-full'}`}
+                <div
+                    className={`absolute top-0 right-0 h-full w-full md:w-[500px] bg-white border-l-4 border-neo-border transform transition-transform duration-300 z-50 shadow-[-8px_0_0_0_rgba(22,51,0,1)] ${isPanelOpen ? 'translate-x-0' : 'translate-x-full'}`}
                 >
-                    <IncidentPanel 
-                        isOpen={isPanelOpen} 
-                        onClose={closePanel} 
-                        data={panelData} 
+                    <IncidentPanel
+                        isOpen={isPanelOpen}
+                        onClose={closePanel}
+                        data={panelData}
                     />
                 </div>
-                
+
                 {/* Overlay for mobile panel */}
                 {isPanelOpen && (
-                    <div 
-                        className="absolute inset-0 bg-black/50 z-20 md:hidden backdrop-blur-sm"
+                    <div
+                        className="absolute inset-0 bg-black/50 z-40 md:hidden backdrop-blur-sm"
                         onClick={closePanel}
                     />
                 )}

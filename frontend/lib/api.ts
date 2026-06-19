@@ -56,12 +56,12 @@ export async function fetchAnalytics() {
     }
 }
 
-export async function parseNLPDescription(description: string) {
+export async function parseNLPDescription(description: string, model?: string) {
     try {
         const response = await fetch(`${API_BASE_URL}/nlp-parse`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ description })
+            body: JSON.stringify({ description, ...(model ? { model } : {}) })
         });
         if (!response.ok) throw new Error('Failed to parse NLP description');
         return await response.json();
@@ -144,6 +144,38 @@ export async function resetHeatmapReplay() {
     }
 }
 
+/**
+ * Resolves a free-text Bengaluru zone/area name to lat/lng coordinates
+ * via the POST /geocode-zone endpoint (Gemini-powered).
+ *
+ * Returns one of three shapes:
+ *   { confidence: "high",      lat, lng, resolved_name }
+ *   { confidence: "ambiguous", candidates: [{name, lat, lng}] }
+ *   { confidence: "failed",    message }
+ */
+export async function geocodeZone(zone: string): Promise<{
+    confidence: 'high' | 'ambiguous' | 'failed';
+    lat?: number;
+    lng?: number;
+    resolved_name?: string;
+    candidates?: { name: string; lat: number; lng: number }[];
+    message?: string;
+}> {
+    try {
+        const response = await fetch(`${API_BASE_URL}/geocode-zone`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ zone }),
+        });
+        if (!response.ok) throw new Error(`Geocode request failed: ${response.status}`);
+        return await response.json();
+    } catch (error) {
+        console.error('geocodeZone error:', error);
+        return { confidence: 'failed', message: 'Network error — could not resolve location.' };
+    }
+}
+
+
 
 /**
  * Streams an LLM action plan from POST /action-plan using fetch + ReadableStream.
@@ -169,12 +201,13 @@ export async function streamActionPlan(
     onDone: () => void,
     onError: (err: Error) => void,
     signal?: AbortSignal,
+    model?: string,
 ): Promise<void> {
     try {
         const response = await fetch(`${API_BASE_URL}/action-plan`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body),
+            body: JSON.stringify({ ...body, ...(model ? { model } : {}) }),
             signal,
         });
 
@@ -202,15 +235,22 @@ export async function streamActionPlan(
             buffer = lines.pop() ?? '';
 
             for (const line of lines) {
-                const trimmed = line.trim();
-                if (!trimmed.startsWith('data:')) continue;
+                const cleanLine = line.replace(/\r$/, '');
+                if (!cleanLine.startsWith('data:')) continue;
 
-                const data = trimmed.slice(5).trim(); // strip "data:" prefix
+                let data = cleanLine.slice(5);
+                // SSE spec: strip exactly one leading space if present
+                if (data.startsWith(' ')) {
+                    data = data.slice(1);
+                }
+
                 if (data === '[DONE]') {
                     onDone();
                     return;
                 }
-                if (data) onToken(data);
+                
+                // Pass the data as-is, preserving all spaces
+                onToken(data);
             }
         }
 

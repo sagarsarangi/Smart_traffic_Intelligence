@@ -68,6 +68,11 @@ class ActionPlanRequest(BaseModel):
         "false",
         description="'true' if this plan is triggered by an anomaly zone alert",
     )
+    model: Optional[str] = Field(
+        None,
+        description="Groq model ID to use for this plan (e.g. 'llama-3.3-70b-versatile'). "
+                    "Defaults to groq/compound-mini if omitted or unrecognised.",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -123,7 +128,7 @@ async def post_action_plan(
     }
 
     return StreamingResponse(
-        _agent.stream_plan(params),
+        _agent.stream_plan(params, model_name=body.model or None),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

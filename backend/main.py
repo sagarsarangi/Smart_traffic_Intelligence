@@ -62,6 +62,7 @@ from backend.routes.incidents import router as incidents_router
 from backend.routes.analytics import router as analytics_router
 from backend.routes.action_plan import router as action_plan_router, init_action_planner
 from backend.routes.feedback import router as feedback_router
+from backend.routes.geocode import router as geocode_router
 
 # ---------------------------------------------------------------------------
 # Application
@@ -118,10 +119,10 @@ async def startup_event() -> None:
 
     # ── 2. Agent 1: NLP Parser ─────────────────────────────────────────────
     logger.info("Initialising Agent 1 (NLP Parser) …")
-    nlp_parser = NLPIncidentParser()  # reads GEMINI_API_KEY / GOOGLE_API_KEY from env
+    nlp_parser = NLPIncidentParser()  # reads GROQ_API_KEY from env
     init_nlp_parser(nlp_parser)
-    logger.info("Agent 1 ready. Gemini key present: %s", bool(
-        os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+    logger.info("Agent 1 ready. Groq key present: %s", bool(
+        os.environ.get("GROQ_API_KEY")
     ))
 
     # ── 3. Agent 2: Prediction Agent ────────────────────────────────────────
@@ -172,7 +173,7 @@ async def startup_event() -> None:
 
     logger.info("Starting anomaly replay background task …")
     asyncio.create_task(anomaly_replay_loop(df))
-    logger.info("Anomaly replay task started.")
+    logger.info("Anomaly replay task started (3 incidents / 0.09 s tick, UI polls every 13 s).")
 
     logger.info("Starting heatmap replay background task …")
     asyncio.create_task(heatmap_replay_loop(df))
@@ -210,3 +211,4 @@ app.include_router(incidents_router,      prefix="", tags=["Map Data"])
 app.include_router(analytics_router,      prefix="", tags=["Analytics"])
 app.include_router(action_plan_router,    prefix="", tags=["Action Plan"])
 app.include_router(feedback_router,       prefix="", tags=["Feedback"])
+app.include_router(geocode_router,        prefix="", tags=["Geocoding"])

@@ -159,6 +159,7 @@ def init_nlp_parser(parser: NLPIncidentParser) -> None:
 
 class NLPParseRequest(BaseModel):
     description: str
+    model: Optional[str] = None  # Groq model ID; defaults to groq/compound-mini if omitted
 
 
 class NLPParseResponse(BaseModel):
@@ -207,7 +208,10 @@ async def nlp_parse(request: NLPParseRequest) -> Any:
         )
 
     try:
-        raw_result = _nlp_parser.parse_description(request.description)
+        raw_result = _nlp_parser.parse_description(
+            request.description,
+            model_name=request.model,
+        )
         # Normalize vocabulary so the frontend always sends encoder-compatible
         # labels to POST /predict.
         return _normalize_nlp_result(raw_result)

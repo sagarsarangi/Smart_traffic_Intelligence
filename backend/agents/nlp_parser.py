@@ -9,6 +9,17 @@ import requests
 
 logger = logging.getLogger(__name__)
 
+# ---------------------------------------------------------------------------
+# Allowed LLM models for Agent 1 (NLP Parser) — all routed via Groq API
+# ---------------------------------------------------------------------------
+ALLOWED_MODELS = [
+    "groq/compound-mini",
+    "llama-3.1-8b-instant",
+    "openai/gpt-oss-120b",
+    "llama-3.3-70b-versatile",
+]
+DEFAULT_MODEL = "groq/compound-mini"
+
 
 def sanitize_url(url: str) -> str:
     """Redacts the 'key' query parameter from a URL to prevent leaks."""
@@ -31,13 +42,18 @@ class NLPIncidentParser:
     """
     
     def __init__(self, api_key: Optional[str] = None):
-        # Look for Google Gemini key (supporting both GEMINI_API_KEY and GOOGLE_API_KEY)
-        self.gemini_key = api_key or os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
-        
-        if self.gemini_key:
-            logger.info("Using Google Gemini API for structured NLP extraction.")
+        # Look for Groq API key
+        self.groq_key = api_key or os.environ.get("GROQ_API_KEY")
+        self.default_model = DEFAULT_MODEL
+        self.base_url = "https://api.groq.com/openai/v1/chat/completions"
+
+        if self.groq_key:
+            logger.info(
+                "[Agent 1 - NLP Parser] Initialised. Default model: %s",
+                self.default_model,
+            )
         else:
-            logger.warning("No API key found for Gemini. Using heuristic fallback.")
+            logger.warning("[Agent 1 - NLP Parser] No Groq API key found. Parser will return None.")
 
     def _get_system_prompt(self) -> str:
         return """You are a structured extraction agent for Bengaluru traffic incidents.
@@ -143,79 +159,103 @@ If you cannot parse the incident or if the text is completely irrelevant to traf
             "normalized_summary": summary
         }
 
-    def _parse_with_gemini(self, description: str) -> Optional[Dict[str, Any]]:
+    def _parse_with_groq(self, description: str, model_name: str) -> Optional[Dict[str, Any]]:
         """
-        Internal helper to parse description using Google Gemini REST API.
+        Internal helper to parse description using Groq chat-completions REST API.
+        Uses the provided model_name for this specific API call.
         """
-        # Using gemini-2.5-flash which is standard and fast
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={self.gemini_key}"
-        headers = {"Content-Type": "application/json"}
-        payload = {
-            "contents": [
-                {
-                    "role": "user",
-                    "parts": [{"text": "ಬಿಎಂಟಿಸಿ ಬಸ್ ಕೆಟ್ಟು ನಿಂತಿದೆ ಸರ್"}]
-                },
-                {
-                    "role": "model",
-                    "parts": [{"text": json.dumps({
-                        "root_cause": "vehicle_breakdown",
-                        "vehicle_type": "bmtc_bus",
-                        "severity": 2,
-                        "action_needed": True,
-                        "normalized_summary": "BMTC bus has broken down at the reported location."
-                    })}]
-                },
-                {
-                    "role": "user",
-                    "parts": [{"text": description}]
-                }
-            ],
-            "systemInstruction": {
-                "parts": [{"text": self._get_system_prompt()}]
-            },
-            "generationConfig": {
-                "responseMimeType": "application/json",
-                "temperature": 0.0
-            }
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.groq_key}",
         }
-        
-        response = requests.post(url, headers=headers, json=payload, timeout=10)
+        few_shot_user = "ಬಿಎಂಟಿಸಿ ಬಸ್ ಕೆಟ್ಟು ನಿಂತಿದೆ ಸರ್"
+        few_shot_assistant = json.dumps({
+            "root_cause": "vehicle_breakdown",
+            "vehicle_type": "bmtc_bus",
+            "severity": 2,
+            "action_needed": True,
+            "normalized_summary": "BMTC bus has broken down at the reported location."
+        })
+        payload = {
+            "model": model_name,
+            "temperature": 0.0,
+            "messages": [
+                {"role": "system",    "content": self._get_system_prompt()},
+                {"role": "user",      "content": few_shot_user},
+                {"role": "assistant", "content": few_shot_assistant},
+                {"role": "user",      "content": description},
+            ],
+        }
+
+        response = requests.post(self.base_url, headers=headers, json=payload, timeout=10)
         response.raise_for_status()
-        response_json = response.json()
-        
-        text = response_json["candidates"][0]["content"]["parts"][0]["text"].strip()
-        
+        text = response.json()["choices"][0]["message"]["content"].strip()
+
         if text.lower() == "null":
             return None
-            
+
         return json.loads(text)
 
-    def parse_description(self, description: str) -> Optional[Dict[str, Any]]:
+    def parse_description(
+        self,
+        description: str,
+        model_name: Optional[str] = None,
+    ) -> Optional[Dict[str, Any]]:
         """
-        Sends the incident description to Google Gemini for parsing.
-        Logs an explicit warning and returns None if the API key is not configured
-        or an error occurs, rather than falling back to heuristics.
+        Sends the incident description to the Groq API for parsing.
+
+        Args:
+            description: Raw incident text (any language).
+            model_name:  Groq model ID to use for this call. Defaults to
+                         DEFAULT_MODEL if None or not in ALLOWED_MODELS.
+
+        Logs an explicit warning and returns None if the API key is not
+        configured or an error occurs, rather than falling back to heuristics.
         """
         if not description or not description.strip():
             return None
 
-        # 1. Check for API key
-        if not self.gemini_key:
-            logger.warning("WARNING: No Gemini API key found. NLP parser model is not loaded.")
+        # 1. Resolve and validate model
+        resolved_model = model_name if model_name in ALLOWED_MODELS else DEFAULT_MODEL
+        if model_name and model_name not in ALLOWED_MODELS:
+            logger.warning(
+                "[Agent 1 - NLP Parser] Unknown model %r requested; falling back to %s.",
+                model_name,
+                DEFAULT_MODEL,
+            )
+
+        # 2. Check for API key
+        if not self.groq_key:
+            logger.warning("[Agent 1 - NLP Parser] WARNING: No Groq API key found. Model not loaded.")
             return None
 
-        # 2. Attempt Google Gemini
+        # 3. Log which model is being used for this call
+        logger.info(
+            "[Agent 1 - NLP Parser] Calling Groq API — model: %s",
+            resolved_model,
+        )
+
+        # 4. Attempt Groq
         try:
-            return self._parse_with_gemini(description)
+            return self._parse_with_groq(description, resolved_model)
         except requests.exceptions.HTTPError as exc:
             status_code = exc.response.status_code if exc.response is not None else "Unknown"
             reason = exc.response.reason if exc.response is not None else "Error"
             safe_url = sanitize_url(exc.request.url) if (exc.request and exc.request.url) else "URL"
             safe_err = f"{status_code} Client Error: {reason} for url: {safe_url}"
-            logger.error(f"WARNING: Gemini parsing failed ({safe_err}). NLP parser model is not loaded.")
+            logger.error(
+                "[Agent 1 - NLP Parser] WARNING: Groq API call failed (model=%s, %s). "
+                "NLP parser model is not loaded.",
+                resolved_model,
+                safe_err,
+            )
             return None
         except Exception as e:
-            safe_err = re.sub(r'([?&]key=)[^&\s"\']+', r'\1[REDACTED]', str(e))
-            logger.error(f"WARNING: Gemini parsing failed ({safe_err}). NLP parser model is not loaded.")
+            safe_err = re.sub(r'(Bearer\s+)\S+', r'\1[REDACTED]', str(e))
+            logger.error(
+                "[Agent 1 - NLP Parser] WARNING: Groq API call failed (model=%s, %s). "
+                "NLP parser model is not loaded.",
+                resolved_model,
+                safe_err,
+            )
             return None

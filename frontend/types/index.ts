@@ -1,5 +1,22 @@
 // Shared Types and Interfaces
 
+// ---------------------------------------------------------------------------
+// Traffic dashboard types
+// ---------------------------------------------------------------------------
+
+/** A submitted incident pin shown on the city map heatmap. */
+export interface IncidentPin {
+    /** Latitude of the resolved location. */
+    lat: number;
+    /** Longitude of the resolved location. */
+    lng: number;
+    /** Display zone / area name (AI-resolved canonical name). */
+    zone: string;
+    /** Unique identifier so React can key the list. */
+    id: string;
+}
+
+
 export interface SystemData {
   name: string;
   contact: {

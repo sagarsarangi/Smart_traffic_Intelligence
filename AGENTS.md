@@ -92,9 +92,9 @@ This is a single form that serves two purposes which used to be described as sep
 
 The user can either fill in structured fields — event type (planned / unplanned), event cause, location (typed address), corridor, time, vehicle type — and submit directly. Or they can paste a raw text description in the description field in any language, and the NLP parser runs first to extract those structured fields automatically, showing the extraction result before proceeding.
 
-**Mandatory Zone & AI Geocoding:** For both modes, providing a Zone/Area is mandatory. Upon submission, the frontend calls a backend endpoint (`POST /geocode-zone`) which uses the Gemini AI to resolve the provided zone into precise latitude and longitude coordinates. 
-- If the AI is highly confident, it proceeds automatically. 
-- If the location is ambiguous (e.g., just "Layout"), an inline clarification modal appears, prompting the user to either pick from a list of suggested precise locations or type a more specific address to re-resolve.
+**Mandatory Zone & Hybrid Geocoding:** For both modes, providing a Zone/Area is mandatory. Upon submission, the frontend calls a backend endpoint (`POST /geocode-zone`) which uses a hybrid approach: Groq AI first parses the free-text zone into a clean canonical place name, and then OpenStreetMap Nominatim verifies it and fetches precise latitude and longitude coordinates. 
+- If the AI and Nominatim are highly confident, it proceeds automatically. 
+- If the location is ambiguous (e.g., just "Layout"), an inline clarification modal appears, prompting the user to either pick from a list of suggested precise locations (each pre-verified by Nominatim) or type a more specific address to re-resolve.
 Once resolved, the incident coordinates are passed to the prediction model, and a persistent red pin is dropped on the City Map at those coordinates.
 
 Both paths end in the same prediction and the same action plan. The only difference is whether the NLP step is visible.
@@ -251,7 +251,7 @@ All endpoints are FastAPI. The dataset CSV is loaded into a pandas DataFrame at 
 | GET /heatmap | GET | Returns a list of `{lat, lng, weight}` objects for every incident in the dataset. Weight = 2 if priority is High, 1 if Low, multiplied by a normalized duration factor. |
 | GET /incidents | GET | Returns paginated incident records with lat, lng, address, junction, corridor, event_type, priority, and status. (Kept for backend API completeness, no longer rendered on UI). |
 | POST /nlp-parse | POST | Accepts `{description: string}`. Calls Agent 1. Returns the structured extraction JSON or null on failure. |
-| POST /geocode-zone | POST | Accepts `{zone: string}`. Calls Groq AI to resolve the area name into lat/lng coordinates. Returns high-confidence coords or a list of ambiguous candidate locations. |
+| POST /geocode-zone | POST | Accepts `{zone: string}`. Uses Groq AI to parse the area name, then queries OpenStreetMap Nominatim for exact lat/lng coordinates. Returns high-confidence coords or a list of ambiguous candidate locations. |
 | POST /predict | POST | Accepts the feature fields (including lat/lng) from the form or an anomaly zone. Runs Agent 2. Returns `{priority, confidence, estimated_duration_minutes, estimated_resolution_time}`. |
 | GET /action-plan | GET (SSE) | Accepts query params matching the full incident + prediction context. Calls Agent 4 and streams the response as Server-Sent Events. |
 | GET /anomaly | GET | Returns the current anomaly scores for all zones, updated every 0.066 seconds by the background replay loop. |
@@ -270,7 +270,7 @@ That is seven endpoints. There is no `/simulate` endpoint — it does not need t
 
 1. User opens the form in View 2. They select event type (planned/unplanned), event cause, choose corridor, pick a time, select vehicle type. They type a mandatory "Zone/Area". They do not enter a description.
 2. User clicks Submit.
-3. Frontend calls `POST /geocode-zone` with the zone string. Groq returns high-confidence coordinates (lat/lng). (If ambiguous, user resolves via modal).
+3. Frontend calls `POST /geocode-zone` with the zone string. Groq parses the name, Nominatim fetches the true coordinates, and the endpoint returns high-confidence lat/lng. (If ambiguous, user resolves via modal).
 4. Frontend skips the NLP step and calls `POST /predict` with the form fields and resolved coordinates.
 5. Backend engineers the feature vector (event_type binary, corridor_rank, event_cause one-hot, veh_type one-hot, closure flag, time features, zone encoding, junction_recurrence lookup).
 6. XGBoost classifier returns priority=High, confidence=0.84.

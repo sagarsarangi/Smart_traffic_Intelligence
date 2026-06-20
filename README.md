@@ -48,11 +48,13 @@ graph TD
     D -->|Duration Estimate| B
     E -->|Anomaly Scores| B
     
-    subgraph Generative AI
+    subgraph External APIs
     F[Groq API]
+    H[OpenStreetMap Nominatim]
     end
     
-    B <-->|NLP Parsing, Geocoding, Action Plans| F
+    B <-->|NLP, Canonical Place Parsing, Action Plans| F
+    B <-->|Verify Location & Fetch Coordinates| H
     
     G[Next.js Interactive Dashboard] <-->|REST API & SSE Streams| B
 ```
@@ -80,8 +82,10 @@ sequenceDiagram
     end
     
     UI->>API: POST /geocode-zone (Zone string)
-    API->>LLM: Resolve geographic location
-    LLM-->>API: Coordinates {lat, lng}
+    API->>LLM: Parse free-text to canonical place name
+    LLM-->>API: Clean resolved_name
+    API->>OSM: Verify with OpenStreetMap Nominatim
+    OSM-->>API: Precise Coordinates {lat, lng}
     API-->>UI: High-confidence coordinates
     
     UI->>API: POST /predict (Feature Vector)
@@ -152,7 +156,7 @@ flowchart TD
 *   **GenAI Action Planner:** LLM-generated deployment plans specifying required officers, barricades, diversions, escalation triggers, and public advisories.
 *   **Dynamic Congestion Heatmap:** Real-time city replay map visualization of historical and streaming congestion zones.
 *   **Pre-emptive Anomaly Detection:** Detect unexpected traffic surges on a zone-by-zone basis.
-*   **AI Geocoding:** Dynamically resolve ambiguous or free-text area names into precise geographic coordinates.
+*   **AI Geocoding:** Hybrid architecture using Groq LLM to parse conversational/messy area names, combined with OpenStreetMap Nominatim for strict, mathematically precise coordinate resolution.
 
 
 ## Machine Learning Integration

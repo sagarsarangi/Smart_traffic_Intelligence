@@ -1,36 +1,12 @@
 """
 Route: POST /geocode-zone
 
-Resolves a free-text Bengaluru area / zone name into geographic coordinates
-using the Groq API (groq/compound-mini).
+Resolves a free-text Bengaluru area / zone name into geographic coordinates.
+Hybrid Approach: Uses Groq (LLM) to parse the free-text description into a clean 
+location name, and then uses OpenStreetMap Nominatim to look up the exact lat/long.
 
 This endpoint is called from the Submit Incident form (View 2) ONLY.
 It is NOT used by the anomaly monitor "Generate Plan" path.
-
-Response shapes:
-
-  High confidence:
-    {
-      "lat": 12.9352,
-      "lng": 77.6245,
-      "resolved_name": "Koramangala 5th Block",
-      "confidence": "high"
-    }
-
-  Ambiguous (user must pick or refine):
-    {
-      "candidates": [
-        {"name": "HSR Layout Sector 1", "lat": 12.9081, "lng": 77.6476},
-        {"name": "HSR Layout Sector 2", "lat": 12.9150, "lng": 77.6430}
-      ],
-      "confidence": "ambiguous"
-    }
-
-  Failed (Groq unavailable or cannot parse):
-    {
-      "confidence": "failed",
-      "message": "Could not resolve location. Please check the backend configuration."
-    }
 """
 
 import asyncio
@@ -49,37 +25,35 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 # ---------------------------------------------------------------------------
-# System prompt for the geocoding agent
+# System prompt for the geocoding agent (LLM parsing)
 # ---------------------------------------------------------------------------
 
-_SYSTEM_PROMPT = """You are a precise geographic coordinate resolver. Your primary focus is Bengaluru (Bangalore), India, but you can also resolve locations within a 600km radius of Bengaluru.
-
-Given a place name, area, zone, locality, junction, city, or landmark, return its latitude and longitude.
+_SYSTEM_PROMPT = """You are a smart location parser. Your job is to take a user's conversational description of a location in Bengaluru (Bangalore) and resolve it into a clean, canonical place name.
 
 Rules:
-1. Resolve locations within Bengaluru or up to a 600km radius from Bengaluru (e.g., other cities in Karnataka or neighboring states).
-2. If the input is a well-known, specific location, return a SINGLE high-confidence result.
-3. If the input is vague or could refer to multiple places, return 2 to 4 distinct candidate locations.
-4. Use your built-in geographic knowledge. Do not make up coordinates — only return coordinates you are confident about.
-5. Coordinates must fall within the expanded bounding box: latitude between 7.0 and 19.0, longitude between 72.0 and 84.0.
+1. If the input is a well-known, specific location, return a SINGLE high-confidence result.
+2. If the input is vague or could refer to multiple places (e.g. "near the big mall"), return 2 to 3 distinct candidate locations.
+3. CRITICAL: Keep the resolved name as short and canonical as possible. Do NOT append specific neighborhoods, sectors, or localities unless the user explicitly typed them. (e.g. if the user says "phoenix mall", return "Phoenix Marketcity", DO NOT return "Phoenix Marketcity, Whitefield").
+4. ALWAYS append the correct city and state to the resolved name (e.g. ", Bengaluru, Karnataka" or ", Mangaluru, Karnataka"). This is critical for the map API to find it.
+5. Return dummy values for lat and lng (like 12.0 and 77.0), we will fetch the real coordinates from a map API later. Your only job is to provide the correct "resolved_name" or candidate "name"s.
 
 RESPONSE FORMAT — return ONLY valid JSON, no markdown, no explanation:
 
 For a specific, unambiguous location:
-{"confidence": "high", "lat": <float>, "lng": <float>, "resolved_name": "<canonical name>"}
+{"confidence": "high", "lat": 12.0, "lng": 77.0, "resolved_name": "<canonical name, city, state>"}
 
 For an ambiguous or vague input:
-{"confidence": "ambiguous", "candidates": [{"name": "<place name>", "lat": <float>, "lng": <float>}, ...]}
+{"confidence": "ambiguous", "candidates": [{"name": "<place name, city, state>", "lat": 12.0, "lng": 77.0}, ...]}
 
-If the location cannot be resolved or is too far outside the 600km radius:
+If the location cannot be parsed at all:
 {"confidence": "failed", "message": "<brief reason>"}
 """
 
 _FEW_SHOT_USER = "Koramangala"
 _FEW_SHOT_MODEL = json.dumps({
     "confidence": "high",
-    "lat": 12.9352,
-    "lng": 77.6245,
+    "lat": 12.0,
+    "lng": 77.0,
     "resolved_name": "Koramangala, Bengaluru"
 })
 
@@ -87,12 +61,11 @@ _FEW_SHOT_USER_2 = "Layout near old airport"
 _FEW_SHOT_MODEL_2 = json.dumps({
     "confidence": "ambiguous",
     "candidates": [
-        {"name": "Jeevan Bima Nagar Layout", "lat": 12.9698, "lng": 77.6473},
-        {"name": "HAL Airport Layout", "lat": 12.9634, "lng": 77.6542},
-        {"name": "New Thippasandra Layout", "lat": 12.9723, "lng": 77.6512}
+        {"name": "Jeevan Bima Nagar Layout", "lat": 12.0, "lng": 77.0},
+        {"name": "HAL Airport Layout", "lat": 12.0, "lng": 77.0},
+        {"name": "New Thippasandra Layout", "lat": 12.0, "lng": 77.0}
     ]
 })
-
 
 # ---------------------------------------------------------------------------
 # Request / Response schemas
@@ -101,38 +74,28 @@ _FEW_SHOT_MODEL_2 = json.dumps({
 class GeocodeZoneRequest(BaseModel):
     zone: str
 
-
 # ---------------------------------------------------------------------------
-# Internal Groq call
+# Internal Logic
 # ---------------------------------------------------------------------------
 
-def _call_groq(zone_input: str) -> Optional[Dict[str, Any]]:
-    """
-    Calls Groq (groq/compound-mini) to geocode the given zone/area string.
-    Returns the parsed JSON response dict, or None on any failure.
-    """
+def _call_groq_parser(zone_input: str) -> Optional[Dict[str, Any]]:
+    """Calls Groq to parse conversational text into a canonical place name."""
     groq_key = os.environ.get("GROQ_API_KEY")
     if not groq_key:
-        logger.warning("No Groq API key found — geocoding cannot proceed.")
+        logger.warning("No Groq API key found — parsing cannot proceed.")
         return None
 
     url = "https://api.groq.com/openai/v1/chat/completions"
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {groq_key}",
-    }
+    headers = {"Content-Type": "application/json", "Authorization": f"Bearer {groq_key}"}
     payload = {
         "model": "groq/compound-mini",
         "temperature": 0.0,
         "messages": [
             {"role": "system",    "content": _SYSTEM_PROMPT},
-            # Few-shot example 1
             {"role": "user",      "content": _FEW_SHOT_USER},
             {"role": "assistant", "content": _FEW_SHOT_MODEL},
-            # Few-shot example 2
             {"role": "user",      "content": _FEW_SHOT_USER_2},
             {"role": "assistant", "content": _FEW_SHOT_MODEL_2},
-            # Actual query
             {"role": "user",      "content": zone_input.strip()},
         ],
     }
@@ -141,136 +104,102 @@ def _call_groq(zone_input: str) -> Optional[Dict[str, Any]]:
         resp = requests.post(url, headers=headers, json=payload, timeout=10)
         resp.raise_for_status()
         raw_text = resp.json()["choices"][0]["message"]["content"].strip()
-        # Strip markdown fences if the model adds them despite the instruction
         raw_text = re.sub(r"^```(?:json)?\s*", "", raw_text)
         raw_text = re.sub(r"\s*```$", "", raw_text)
         return json.loads(raw_text)
-    except requests.exceptions.HTTPError as exc:
-        status = exc.response.status_code if exc.response else "?"
-        safe = re.sub(r"(Bearer\s+)\S+", r"\1[REDACTED]", str(exc))
-        logger.error("Groq geocode HTTP error %s: %s", status, safe)
-        return None
     except Exception as exc:
-        safe = re.sub(r"(Bearer\s+)\S+", r"\1[REDACTED]", str(exc))
-        logger.error("Groq geocode error: %s", safe)
+        logger.error("Groq parser error: %s", exc)
         return None
 
+def _fetch_coordinates(place_name: str) -> Optional[tuple[float, float]]:
+    """Calls Nominatim to fetch exact lat/lng for a given place name."""
+    query = place_name.strip()
+
+    logger.info("  -> Calling Nominatim with query: %r", query)
+
+    url = "https://nominatim.openstreetmap.org/search"
+    params = {"q": query, "format": "json", "limit": 1, "countrycodes": "in"}
+    headers = {"User-Agent": "SmartTrafficIntelligence/1.0 (Local-Hackathon-Project)"}
+
+    try:
+        resp = requests.get(url, params=params, headers=headers, timeout=5)
+        resp.raise_for_status()
+        data = resp.json()
+        if data:
+            return float(data[0]["lat"]), float(data[0]["lon"])
+    except Exception as exc:
+        logger.error("Nominatim lookup failed: %s", exc)
+    return None
+
+def _hybrid_geocode(zone_input: str) -> Optional[Dict[str, Any]]:
+    # 1. Ask LLM to parse
+    parsed = _call_groq_parser(zone_input)
+    if not parsed:
+        return None
+        
+    confidence = parsed.get("confidence", "failed")
+    logger.info("LLM Geocode Parser Output: confidence=%r", confidence)
+    
+    # 2. Fetch true coordinates from Nominatim
+    if confidence == "high":
+        name = parsed.get("resolved_name", zone_input)
+        logger.info("LLM resolved high confidence name: %r", name)
+        coords = _fetch_coordinates(name)
+        if coords:
+            return {"confidence": "high", "lat": coords[0], "lng": coords[1], "resolved_name": name}
+        else:
+            return {"confidence": "failed", "message": f"Could not map coordinates for '{name}'."}
+            
+    elif confidence == "ambiguous":
+        candidates = parsed.get("candidates", [])
+        valid = []
+        logger.info("LLM returned %d ambiguous candidates. Verifying with Nominatim...", len(candidates))
+        import time
+        for c in candidates:
+            name = c.get("name", "Unknown")
+            coords = _fetch_coordinates(name)
+            if coords:
+                valid.append({"name": name, "lat": coords[0], "lng": coords[1]})
+            # Respect OpenStreetMap's 1 req/sec strict limit
+            time.sleep(1.1)
+        
+        if valid:
+            return {"confidence": "ambiguous", "candidates": valid}
+        else:
+            return {"confidence": "failed", "message": "Could not verify coordinates for candidate locations."}
+            
+    return parsed
 
 def _validate_bengaluru_coords(lat: float, lng: float) -> bool:
-    """Sanity-check that coordinates fall within an approx 600km radius of Bengaluru."""
-    # Center: ~12.9 lat, 77.6 lng. 600km is roughly +/- 5.5 degrees.
     return 7.0 <= lat <= 19.0 and 72.0 <= lng <= 84.0
-
 
 # ---------------------------------------------------------------------------
 # Endpoint
 # ---------------------------------------------------------------------------
 
-@router.post(
-    "/geocode-zone",
-    summary="Resolve a Bengaluru area/zone name to lat/lng coordinates",
-    tags=["Geocoding"],
-)
+@router.post("/geocode-zone", summary="Resolve a Bengaluru area to coordinates", tags=["Geocoding"])
 async def geocode_zone(request: GeocodeZoneRequest) -> Dict[str, Any]:
-    """
-    Accepts a free-text zone/area/locality name for a Bengaluru location
-    and returns either:
-
-    - A single high-confidence {lat, lng, resolved_name} if unambiguous.
-    - A list of candidate locations {candidates} if the input is vague.
-    - {confidence: "failed"} if Groq cannot resolve it.
-
-    Called exclusively from the Submit Incident form (View 2).
-    The anomaly monitor "Generate Plan" path does NOT call this endpoint.
-    """
     zone_input = (request.zone or "").strip()
     if not zone_input:
         return {"confidence": "failed", "message": "Zone name is empty."}
 
-    logger.info("Geocoding zone: %r", zone_input)
+    logger.info("Geocoding zone (Hybrid LLM+Nominatim): %r", zone_input)
 
-    # Run the synchronous Groq HTTP call in a thread pool so it does not
-    # block the asyncio event loop (and therefore other concurrent requests).
-    result = await asyncio.to_thread(_call_groq, zone_input)
+    result = await asyncio.to_thread(_hybrid_geocode, zone_input)
 
     if result is None:
-        return {
-            "confidence": "failed",
-            "message": (
-                "Could not resolve location. The AI geocoder is unavailable. "
-                "Please check the server configuration."
-            ),
-        }
+        return {"confidence": "failed", "message": "Geocoding service unavailable."}
 
-    confidence = result.get("confidence", "failed")
-
-    if confidence == "high":
-        lat = result.get("lat")
-        lng = result.get("lng")
-        resolved_name = result.get("resolved_name", zone_input)
-
-        # Validate coordinates are within Bengaluru
-        if lat is None or lng is None or not _validate_bengaluru_coords(lat, lng):
-            logger.warning(
-                "Groq returned out-of-bounds coords for %r: lat=%s lng=%s",
-                zone_input, lat, lng,
-            )
-            return {
-                "confidence": "failed",
-                "message": (
-                    f"The resolved location '{resolved_name}' does not appear to be "
-                    "within a 600km radius of Bengaluru. Please provide a closer area name."
-                ),
-            }
-
-        logger.info(
-            "Geocoded %r → %s (%.4f, %.4f)", zone_input, resolved_name, lat, lng
-        )
-        return {
-            "confidence": "high",
-            "lat": float(lat),
-            "lng": float(lng),
-            "resolved_name": resolved_name,
-        }
-
-    elif confidence == "ambiguous":
-        candidates: List[Dict[str, Any]] = result.get("candidates", [])
-        # Filter candidates to valid Bengaluru bounds
-        valid_candidates = [
-            c for c in candidates
-            if _validate_bengaluru_coords(
-                float(c.get("lat", 0)), float(c.get("lng", 0))
-            )
+    # If it succeeded, apply bounds checking just to be safe
+    if result.get("confidence") == "high":
+        if not _validate_bengaluru_coords(result["lat"], result["lng"]):
+            return {"confidence": "failed", "message": "Resolved location is outside Bengaluru radius."}
+    elif result.get("confidence") == "ambiguous":
+        result["candidates"] = [
+            c for c in result["candidates"]
+            if _validate_bengaluru_coords(c["lat"], c["lng"])
         ]
-        if not valid_candidates:
-            return {
-                "confidence": "failed",
-                "message": (
-                    "Could not find valid locations within the 600km radius for this input. "
-                    "Try including a landmark, street, or more specific area name."
-                ),
-            }
-        logger.info(
-            "Geocode ambiguous for %r — returning %d candidates",
-            zone_input, len(valid_candidates),
-        )
-        return {
-            "confidence": "ambiguous",
-            "candidates": [
-                {
-                    "name": c.get("name", "Unknown"),
-                    "lat": float(c.get("lat", 0)),
-                    "lng": float(c.get("lng", 0)),
-                }
-                for c in valid_candidates
-            ],
-        }
+        if not result["candidates"]:
+            return {"confidence": "failed", "message": "Resolved candidates outside Bengaluru radius."}
 
-    else:
-        # confidence == "failed" or unexpected
-        message = result.get(
-            "message",
-            "Could not resolve this location. Try a more specific address.",
-        )
-        logger.info("Geocode failed for %r: %s", zone_input, message)
-        return {"confidence": "failed", "message": message}
+    return result

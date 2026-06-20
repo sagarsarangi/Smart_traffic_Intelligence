@@ -45,7 +45,20 @@ A real-time traffic intelligence dashboard for Bengaluru traffic authorities. Th
 │   │   ├── encoders.joblib
 │   │   └── junction_lookup.joblib
 │   ├── routes/                  # All FastAPI endpoint routers
+│   │   ├── action_plan.py
+│   │   ├── analytics.py
+│   │   ├── anomaly.py
+│   │   ├── feedback.py
 │   │   ├── geocode.py           # Geocoding endpoint using Groq
+│   │   ├── heatmap.py
+│   │   ├── heatmap_replay.py
+│   │   ├── incidents.py
+│   │   ├── nlp.py
+│   │   └── predict.py
+│   ├── training/                # ML Training
+│   │   └── traffic_analysis.ipynb
+│   ├── utils/                   # Backend Utilities
+│   │   └── security.py
 │   └── feedback.jsonl           # Appended at runtime; not committed
 ├── frontend/
 │   ├── app/
@@ -203,7 +216,7 @@ Frontend shows the parsed fields in the Incident Panel as a "Parsed from descrip
 
 ### `POST /geocode-zone`
 
-**Purpose:** Use Groq AI to resolve a free-text Bengaluru area/zone name (or any location within an approx 600km radius of Bengaluru) into geographic coordinates. Used only by the View 2 submit form.
+**Purpose:** Use a hybrid approach (Groq AI + OpenStreetMap Nominatim) to resolve a free-text Bengaluru area/zone name (or any location within an approx 600km radius of Bengaluru) into geographic coordinates. Used only by the View 2 submit form.
 
 **Input (JSON body):**
 
@@ -551,7 +564,8 @@ User fills form (View 2)
     ▼
 Frontend: POST /geocode-zone  ─────────────────────────────────────────────────────────────────────►
                                                                                                     Backend:
-                                                                                                    Groq API (Geocoding)
+                                                                                                    Groq API (Canonical Parsing)
+                                                                                                    Nominatim (Coord Verification)
 ◄──────────────────────────────────────────────────────────────────────────────────────────────────
     {confidence: "high", lat, lng, resolved_name}
     (If ambiguous, Clarification Modal loops until resolved)
@@ -767,6 +781,7 @@ Build Submit Incident form (both input modes) → wire three-step API sequence (
 
 | Date       | Change                                                                                                    | Author       |
 | ---------- | --------------------------------------------------------------------------------------------------------- | ------------ |
+| 2026-06-20 | Replaced pure Groq geocoding with a Hybrid architecture (Groq text parsing + OpenStreetMap Nominatim verification) for strict mathematical coordinate accuracy and support for 600km radius. | AI Assistant |
 | 2026-06-20 | Backend performance and stability fixes: non-blocking HTTP for Groq APIs, O(1) incremental heatmap cache updates, graceful task cancellation, and shared utilities. | AI Assistant |
 | 2026-06-19 | Added Geocoding (/geocode-zone) for mandatory zone resolution, ZoneClarificationModal, and Map Pin layer. | AI Assistant |
 | 2026-06-18 | Architecture updated to reflect actual Next.js, Groq API, and feature implementations.                    | AI Assistant |

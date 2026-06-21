@@ -8,7 +8,7 @@ Design notes
   live ASGI client is used; the underlying dataset + committed ``.joblib``
   models are real artifacts already present in the repo, so no training is
   required for tests.
-- Every external network call (Groq API, OpenStreetMap Nominatim) is blocked
+- Every external network call (Groq API,  LocationIQ) is blocked
   at the ``requests`` layer by the ``block_network`` autouse fixture. Route
   tests that exercise the LLM/geocoding paths monkeypatch the specific call
   sites, so a real key or network connection is never needed.

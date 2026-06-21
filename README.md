@@ -50,7 +50,7 @@ graph TD
     
     subgraph External APIs
     F[Groq API]
-    H[OpenStreetMap Nominatim]
+    H[LocationIQ]
     end
     
     B <-->|NLP, Canonical Place Parsing, Action Plans| F
@@ -84,7 +84,7 @@ sequenceDiagram
     UI->>API: POST /geocode-zone (Zone string)
     API->>LLM: Parse free-text to canonical place name
     LLM-->>API: Clean resolved_name
-    API->>OSM: Verify with OpenStreetMap Nominatim
+    API->>OSM: Verify with LocationIQ
     OSM-->>API: Precise Coordinates {lat, lng}
     API-->>UI: High-confidence coordinates
     
@@ -156,7 +156,7 @@ flowchart TD
 *   **GenAI Action Planner:** LLM-generated deployment plans specifying required officers, barricades, diversions, escalation triggers, and public advisories.
 *   **Dynamic Congestion Heatmap:** Real-time city replay map visualization of historical and streaming congestion zones.
 *   **Pre-emptive Anomaly Detection:** Detect unexpected traffic surges on a zone-by-zone basis.
-*   **AI Geocoding:** Hybrid architecture using Groq LLM to parse conversational/messy area names, combined with OpenStreetMap Nominatim for strict, mathematically precise coordinate resolution.
+*   **AI Geocoding:** Hybrid architecture using Groq LLM to parse conversational/messy area names, combined with LocationIQ for strict, mathematically precise coordinate resolution.
 
 
 ## Machine Learning Integration
@@ -202,7 +202,7 @@ The system is built on a real Bengaluru traffic incident dataset containing 8,17
 
 ## Testing & CI
 
-The project uses a rigorous CI/CD pipeline via GitHub Actions. External dependencies (Groq API, OpenStreetMap Nominatim) are thoroughly mocked to ensure fast, deterministic tests.
+The project uses a rigorous CI/CD pipeline via GitHub Actions. External dependencies (Groq API, LocationIQ) are thoroughly mocked to ensure fast, deterministic tests.
 
 - **Backend Tests:** Uses `pytest` with a massive multi-OS/multi-Python matrix. Run locally via `cd backend && pytest`. Covers ~140 scenarios across routes, feature engineering, and agents.
 - **Frontend Tests:** Uses `vitest` and React Testing Library. Run locally via `cd frontend && npm test`.

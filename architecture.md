@@ -216,7 +216,7 @@ Frontend shows the parsed fields in the Incident Panel as a "Parsed from descrip
 
 ### `POST /geocode-zone`
 
-**Purpose:** Use a hybrid approach (Groq AI + OpenStreetMap Nominatim) to resolve a free-text Bengaluru area/zone name (or any location within an approx 600km radius of Bengaluru) into geographic coordinates. Used only by the View 2 submit form.
+**Purpose:** Use a hybrid approach (Groq AI + LocationIQ) to resolve a free-text Bengaluru area/zone name (or any location within an approx 600km radius of Bengaluru) into geographic coordinates. Used only by the View 2 submit form.
 
 **Input (JSON body):**
 
@@ -565,7 +565,7 @@ User fills form (View 2)
 Frontend: POST /geocode-zone  ─────────────────────────────────────────────────────────────────────►
                                                                                                     Backend:
                                                                                                     Groq API (Canonical Parsing)
-                                                                                                    Nominatim (Coord Verification)
+                                                                                                    LocationIQ (Coord Verification)
 ◄──────────────────────────────────────────────────────────────────────────────────────────────────
     {confidence: "high", lat, lng, resolved_name}
     (If ambiguous, Clarification Modal loops until resolved)
@@ -779,7 +779,7 @@ Build Submit Incident form (both input modes) → wire three-step API sequence (
 
 | Date       | Change                                                                                                    | Author       |
 | ---------- | --------------------------------------------------------------------------------------------------------- | ------------ |
-| 2026-06-20 | Replaced pure Groq geocoding with a Hybrid architecture (Groq text parsing + OpenStreetMap Nominatim verification) for strict mathematical coordinate accuracy and support for 600km radius. | AI Assistant |
+| 2026-06-20 | Replaced pure Groq geocoding with a Hybrid architecture (Groq text parsing + LocationIQ verification) for strict mathematical coordinate accuracy and support for 600km radius. | AI Assistant |
 | 2026-06-20 | Backend performance and stability fixes: non-blocking HTTP for Groq APIs, O(1) incremental heatmap cache updates, graceful task cancellation, and shared utilities. | AI Assistant |
 | 2026-06-19 | Added Geocoding (/geocode-zone) for mandatory zone resolution, ZoneClarificationModal, and Map Pin layer. | AI Assistant |
 | 2026-06-18 | Architecture updated to reflect actual Next.js, Groq API, and feature implementations.                    | AI Assistant |

@@ -3,7 +3,7 @@ Route: POST /geocode-zone
 
 Resolves a free-text Bengaluru area / zone name into geographic coordinates.
 Hybrid Approach: Uses Groq (LLM) to parse the free-text description into a clean 
-location name, and then uses OpenStreetMap Nominatim to look up the exact lat/long.
+location name, and then uses  LocationIQ to look up the exact lat/long.
 
 This endpoint is called from the Submit Incident form (View 2) ONLY.
 It is NOT used by the anomaly monitor "Generate Plan" path.
@@ -115,8 +115,8 @@ import time
 import functools
 import threading
 
-# Global lock to ensure only one Nominatim request happens at a time across all threads
-_nominatim_lock = threading.Lock()
+# Global lock to ensure only one LocationIQ request happens at a time across all threads
+_locationiq_lock = threading.Lock()
 
 @functools.lru_cache(maxsize=256)
 def _fetch_coordinates(place_name: str) -> Optional[tuple[float, float]]:
@@ -137,7 +137,7 @@ def _fetch_coordinates(place_name: str) -> Optional[tuple[float, float]]:
     for attempt in range(2):
         try:
             # We acquire the global lock before making the request
-            with _nominatim_lock:
+            with _locationiq_lock:
                 # LocationIQ allows 2 req/sec. We sleep 0.55s to be safe.
                 time.sleep(0.55)
                 resp = requests.get(url, params=params, headers=headers, timeout=15)
@@ -149,6 +149,7 @@ def _fetch_coordinates(place_name: str) -> Optional[tuple[float, float]]:
             resp.raise_for_status()
             data = resp.json()
             if data:
+                logger.info("  -> LocationIQ returned: %s (lat: %s, lon: %s)", data[0].get("display_name", "Unknown"), data[0]["lat"], data[0]["lon"])
                 return float(data[0]["lat"]), float(data[0]["lon"])
                 
             # Fallback: strip out ", Bengaluru" or ", Karnataka" and try the core name
@@ -161,22 +162,24 @@ def _fetch_coordinates(place_name: str) -> Optional[tuple[float, float]]:
                 logger.info("  -> LocationIQ failed, trying fallback query: %r", core_name)
                 params["q"] = core_name
                 # Respect rate limit for second call by using the global lock
-                with _nominatim_lock:
+                with _locationiq_lock:
                     time.sleep(0.55)
                     resp = requests.get(url, params=params, headers=headers, timeout=15)
                 
                 if resp.status_code == 429:
                     logger.warning("LocationIQ rate limited (429) on fallback. Sleeping for 2 seconds...")
                     time.sleep(2)
-                    with _nominatim_lock:
+                    with _locationiq_lock:
                         time.sleep(0.55)
                         resp = requests.get(url, params=params, headers=headers, timeout=15)
                     
                 resp.raise_for_status()
                 data = resp.json()
                 if data:
+                    logger.info("  -> LocationIQ fallback returned: %s (lat: %s, lon: %s)", data[0].get("display_name", "Unknown"), data[0]["lat"], data[0]["lon"])
                     return float(data[0]["lat"]), float(data[0]["lon"])
             
+            logger.info("  -> LocationIQ returned NO RESULTS for this query.")
             # If we reach here, we successfully made the requests but got no data
             break
             
@@ -199,7 +202,7 @@ def _hybrid_geocode(zone_input: str) -> Optional[Dict[str, Any]]:
     confidence = parsed.get("confidence", "failed")
     logger.info("LLM Geocode Parser Output: confidence=%r", confidence)
     
-    # 2. Fetch true coordinates from Nominatim
+    # 2. Fetch true coordinates from LocationIQ
     if confidence == "high":
         name = parsed.get("resolved_name", zone_input)
         logger.info("LLM resolved high confidence name: %r", name)
@@ -212,14 +215,14 @@ def _hybrid_geocode(zone_input: str) -> Optional[Dict[str, Any]]:
     elif confidence == "ambiguous":
         candidates = parsed.get("candidates", [])
         valid = []
-        logger.info("LLM returned %d ambiguous candidates. Verifying with Nominatim...", len(candidates))
+        logger.info("LLM returned %d ambiguous candidates. Verifying with LocationIQ...", len(candidates))
         import time
         for c in candidates:
             name = c.get("name", "Unknown")
             coords = _fetch_coordinates(name)
             if coords:
                 valid.append({"name": name, "lat": coords[0], "lng": coords[1]})
-            # Respect OpenStreetMap's 1 req/sec strict limit
+            # Respect 's 1 req/sec strict limit
             time.sleep(1.1)
         
         if valid:
@@ -242,7 +245,7 @@ async def geocode_zone(request: GeocodeZoneRequest) -> Dict[str, Any]:
     if not zone_input:
         return {"confidence": "failed", "message": "Zone name is empty."}
 
-    logger.info("Geocoding zone (Hybrid LLM+Nominatim): %r", zone_input)
+    logger.info("Geocoding zone (Hybrid LLM+LocationIQ): %r", zone_input)
 
     result = await asyncio.to_thread(_hybrid_geocode, zone_input)
 

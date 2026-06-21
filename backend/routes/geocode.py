@@ -119,10 +119,10 @@ def _fetch_coordinates(place_name: str) -> Optional[tuple[float, float]]:
 
     url = "https://nominatim.openstreetmap.org/search"
     params = {"q": query, "format": "json", "limit": 1, "countrycodes": "in"}
-    headers = {"User-Agent": "SmartTrafficIntelligence/1.0 (Local-Hackathon-Project)"}
+    headers = {"User-Agent": "SmartTrafficIntelligence/1.0 (contact: a@gmail.com)"}
 
     try:
-        resp = requests.get(url, params=params, headers=headers, timeout=5)
+        resp = requests.get(url, params=params, headers=headers, timeout=15)
         resp.raise_for_status()
         data = resp.json()
         if data:
@@ -139,7 +139,7 @@ def _fetch_coordinates(place_name: str) -> Optional[tuple[float, float]]:
             params["q"] = core_name
             import time
             time.sleep(1.1)  # Respect rate limit for second call
-            resp = requests.get(url, params=params, headers=headers, timeout=5)
+            resp = requests.get(url, params=params, headers=headers, timeout=15)
             resp.raise_for_status()
             data = resp.json()
             if data:

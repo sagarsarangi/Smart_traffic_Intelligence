@@ -43,7 +43,7 @@ vi.mock('leaflet.heat', () => ({}));
 
 // Recharts stub
 vi.mock('recharts', async (importOriginal) => {
-  const actual = await importOriginal();
+  const actual: any = await importOriginal();
   return {
     ...actual,
     ResponsiveContainer: ({ children }: any) => children,

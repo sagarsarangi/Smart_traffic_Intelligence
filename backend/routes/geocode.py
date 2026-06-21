@@ -111,6 +111,10 @@ def _call_groq_parser(zone_input: str) -> Optional[Dict[str, Any]]:
         logger.error("Groq parser error: %s", exc)
         return None
 
+import time
+import functools
+
+@functools.lru_cache(maxsize=256)
 def _fetch_coordinates(place_name: str) -> Optional[tuple[float, float]]:
     """Calls Nominatim to fetch exact lat/lng for a given place name."""
     query = place_name.strip()
@@ -119,34 +123,58 @@ def _fetch_coordinates(place_name: str) -> Optional[tuple[float, float]]:
 
     url = "https://nominatim.openstreetmap.org/search"
     params = {"q": query, "format": "json", "limit": 1, "countrycodes": "in"}
-    headers = {"User-Agent": "SmartTrafficIntelligence/1.0 (contact: a@gmail.com)"}
+    # Use a more specific User-Agent to avoid being blocked for generic contact info
+    headers = {"User-Agent": "SmartTrafficIntelligence/1.2 (contact: saran.traffic@example.com)"}
 
-    try:
-        resp = requests.get(url, params=params, headers=headers, timeout=15)
-        resp.raise_for_status()
-        data = resp.json()
-        if data:
-            return float(data[0]["lat"]), float(data[0]["lon"])
-            
-        # Fallback: strip out ", Bengaluru" or ", Karnataka" and try the core name
-        if "," in query:
-            core_name = query.split(",")[0].strip()
-            # Also try removing " Layout" if the LLM hallucinated it
-            if core_name.lower().endswith(" layout"):
-                core_name = core_name[:-7].strip()
-                
-            logger.info("  -> Nominatim failed, trying fallback query: %r", core_name)
-            params["q"] = core_name
-            import time
-            time.sleep(1.1)  # Respect rate limit for second call
+    # Proactively sleep to ensure we never burst Nominatim across multiple rapid calls
+    time.sleep(1.5)
+
+    for attempt in range(2):
+        try:
             resp = requests.get(url, params=params, headers=headers, timeout=15)
+            if resp.status_code == 429:
+                logger.warning("Nominatim rate limited (429). Sleeping for 3 seconds and retrying...")
+                time.sleep(3)
+                continue
+            
             resp.raise_for_status()
             data = resp.json()
             if data:
                 return float(data[0]["lat"]), float(data[0]["lon"])
                 
-    except Exception as exc:
-        logger.error("Nominatim lookup failed: %s", exc)
+            # Fallback: strip out ", Bengaluru" or ", Karnataka" and try the core name
+            if "," in query:
+                core_name = query.split(",")[0].strip()
+                # Also try removing " Layout" if the LLM hallucinated it
+                if core_name.lower().endswith(" layout"):
+                    core_name = core_name[:-7].strip()
+                    
+                logger.info("  -> Nominatim failed, trying fallback query: %r", core_name)
+                params["q"] = core_name
+                time.sleep(2.0)  # Respect rate limit for second call
+                resp = requests.get(url, params=params, headers=headers, timeout=15)
+                
+                if resp.status_code == 429:
+                    logger.warning("Nominatim rate limited (429) on fallback. Sleeping for 3 seconds...")
+                    time.sleep(3)
+                    resp = requests.get(url, params=params, headers=headers, timeout=15)
+                    
+                resp.raise_for_status()
+                data = resp.json()
+                if data:
+                    return float(data[0]["lat"]), float(data[0]["lon"])
+            
+            # If we reach here, we successfully made the requests but got no data
+            break
+            
+        except Exception as exc:
+            if "429" in str(exc) and attempt == 0:
+                logger.warning("Nominatim rate limited exception (429). Sleeping for 3 seconds and retrying...")
+                time.sleep(3)
+                continue
+            logger.error("Nominatim lookup failed: %s", exc)
+            break
+            
     return None
 
 def _hybrid_geocode(zone_input: str) -> Optional[Dict[str, Any]]:

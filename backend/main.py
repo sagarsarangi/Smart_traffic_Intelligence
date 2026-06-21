@@ -212,8 +212,16 @@ async def shutdown_event() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Health check
+# Health check & Root
 # ---------------------------------------------------------------------------
+
+@app.get("/", tags=["System"])
+async def root():
+    """Root endpoint to show the API is running."""
+    return {
+        "status": "working",
+        "message": "Smart Traffic Intelligence API is live"
+    }
 
 @app.get("/ping", tags=["System"])
 async def ping_check():

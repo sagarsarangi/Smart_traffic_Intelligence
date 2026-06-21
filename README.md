@@ -1,30 +1,34 @@
 # Smart Traffic Intelligence System
 
 ![Status](https://img.shields.io/badge/Status-Deployed-success?style=for-the-badge)
-![Next.js](https://img.shields.io/badge/Frontend-Next.js_16-black?style=for-the-badge&logo=next.js)
+![GitHub CI/CD](https://img.shields.io/badge/GitHub_CI/CD-2088FF?style=for-the-badge&logo=github-actions&logoColor=white)
+![Render](https://img.shields.io/badge/Render-46E3B7?style=for-the-badge&logo=render&logoColor=white)
+![Vercel](https://img.shields.io/badge/Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)
+![Next.js](https://img.shields.io/badge/Next.js_16-black?style=for-the-badge&logo=next.js)
 ![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
 ![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)
-![Vercel](https://img.shields.io/badge/Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)
-![FastAPI](https://img.shields.io/badge/Backend-FastAPI-009688?style=for-the-badge)
+![GSAP](https://img.shields.io/badge/GSAP-88CE02?style=for-the-badge&logo=greensock&logoColor=white)
+![Framer Motion](https://img.shields.io/badge/Framer_Motion-0055FF?style=for-the-badge&logo=framer&logoColor=white)
+![Leaflet](https://img.shields.io/badge/Leaflet-199900?style=for-the-badge&logo=leaflet&logoColor=white)
+![Vitest](https://img.shields.io/badge/Vitest-6E9F18?style=for-the-badge&logo=vitest&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)
 ![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
-![Groq](https://img.shields.io/badge/GenAI-Groq-f55036?style=for-the-badge)
-![XGBoost](https://img.shields.io/badge/ML-XGBoost-1D86E8?style=for-the-badge)
+![Groq](https://img.shields.io/badge/Groq-f55036?style=for-the-badge)
+![XGBoost](https://img.shields.io/badge/XGBoost-1D86E8?style=for-the-badge)
 ![scikit-learn](https://img.shields.io/badge/scikit--learn-%23F7931E.svg?style=for-the-badge&logo=scikit-learn&logoColor=white)
 ![Pandas](https://img.shields.io/badge/pandas-%23150458.svg?style=for-the-badge&logo=pandas&logoColor=white)
 ![NumPy](https://img.shields.io/badge/numpy-%23013243.svg?style=for-the-badge&logo=numpy&logoColor=white)
 
 An AI-powered traffic forecasting and decision-support platform built on a dataset of **8,173 real Bengaluru traffic incidents**. It helps authorities predict congestion caused by planned and unplanned events, detect anomalies before they escalate, and auto-generate response plans using Generative AI. By learning the actual congestion behaviors of Bengaluru's unique corridors, the system transitions city operations from reactive to proactive.
 
-
 ## Problem Statement
 
 Traffic authorities today react to congestion after it happens, relying on experience-based decisions, manual patrols, and no post-event learning. This system solves that by utilizing historical city data to anticipate choke points before they form:
 
-*   **Planned events** (public gatherings, construction) are analyzed to predict impact in advance.
-*   **Unplanned events** (breakdowns, accidents) trigger early anomaly detection.
-*   **Every incident** is processed through GenAI to auto-generate a ready-to-act response plan.
-
+- **Planned events** (public gatherings, construction) are analyzed to predict impact in advance.
+- **Unplanned events** (breakdowns, accidents) trigger early anomaly detection.
+- **Every incident** is processed through GenAI to auto-generate a ready-to-act response plan.
 
 ## System Architecture
 
@@ -33,29 +37,29 @@ The architecture relies on a Next.js interactive frontend and a FastAPI backend 
 ```mermaid
 graph TD
     A[Raw Incident Data] -->|In-Memory Data Loader| B[FastAPI Backend]
-    
+
     subgraph Machine Learning
-    C[XGBoost Classifier] 
+    C[XGBoost Classifier]
     D[XGBoost Regressor]
     E[Isolation Forest]
     end
-    
+
     B -->|Feature Vector| C
     B -->|Feature Vector| D
     B -->|Time-Series Metrics| E
-    
+
     C -->|Priority Prediction| B
     D -->|Duration Estimate| B
     E -->|Anomaly Scores| B
-    
+
     subgraph External APIs
     F[Groq API]
     H[LocationIQ]
     end
-    
+
     B <-->|NLP, Canonical Place Parsing, Action Plans| F
     B <-->|Verify Location & Fetch Coordinates| H
-    
+
     G[Next.js Interactive Dashboard] <-->|REST API & SSE Streams| B
 ```
 
@@ -71,7 +75,7 @@ sequenceDiagram
     participant API as FastAPI Backend
     participant LLM as Groq API
     participant ML as XGBoost Models
-    
+
     alt Structured Input Mode
         UI->>UI: Gather Form Fields (Type, Cause, Corridor)
     else Free-Text Mode
@@ -80,19 +84,19 @@ sequenceDiagram
         LLM-->>API: JSON properties
         API-->>UI: Parsed features
     end
-    
+
     UI->>API: POST /geocode-zone (Zone string)
     API->>LLM: Parse free-text to canonical place name
     LLM-->>API: Clean resolved_name
     API->>OSM: Verify with LocationIQ
     OSM-->>API: Precise Coordinates {lat, lng}
     API-->>UI: High-confidence coordinates
-    
+
     UI->>API: POST /predict (Feature Vector)
     API->>ML: Run classifier & regressor
     ML-->>API: Inference results
     API-->>UI: Priority & Duration estimate
-    
+
     UI->>API: GET /action-plan (Full Context)
     API->>LLM: Request 6-section response plan
     LLM-->>API: SSE token chunks
@@ -109,14 +113,14 @@ sequenceDiagram
     participant API as FastAPI Backend
     participant Task as Background Loop
     participant IF as Isolation Forest
-    
+
     loop Every 0.07s (Dataset Replay)
         Task->>Task: Update sliding window (24h eviction)
         Task->>IF: Compute metrics (count, ratio, duration)
         IF-->>Task: Return Anomaly Scores
         Task->>API: Update in-memory cache
     end
-    
+
     loop Every 10s
         UI->>API: GET /anomaly
         API-->>UI: Alert Levels (Normal/Watch/Critical)
@@ -148,45 +152,47 @@ flowchart TD
     end
 ```
 
-
 ## Core Features
 
-*   **Event-Based Congestion Prediction:** Forecast traffic volume and priority risk scores for any upcoming or ongoing event.
-*   **Multilingual Incident Understanding:** Automatically classify Kannada or mixed-language incident reports using NLP to extract actionable structured data.
-*   **GenAI Action Planner:** LLM-generated deployment plans specifying required officers, barricades, diversions, escalation triggers, and public advisories.
-*   **Dynamic Congestion Heatmap:** Real-time city replay map visualization of historical and streaming congestion zones.
-*   **Pre-emptive Anomaly Detection:** Detect unexpected traffic surges on a zone-by-zone basis.
-*   **AI Geocoding:** Hybrid architecture using Groq LLM to parse conversational/messy area names, combined with LocationIQ for strict, mathematically precise coordinate resolution.
-
+- **Event-Based Congestion Prediction:** Forecast traffic volume and priority risk scores for any upcoming or ongoing event.
+- **Multilingual Incident Understanding:** Automatically classify Kannada or mixed-language incident reports using NLP to extract actionable structured data.
+- **GenAI Action Planner:** LLM-generated deployment plans specifying required officers, barricades, diversions, escalation triggers, and public advisories.
+- **Dynamic Congestion Heatmap:** Real-time city replay map visualization of historical and streaming congestion zones.
+- **Pre-emptive Anomaly Detection:** Detect unexpected traffic surges on a zone-by-zone basis.
+- **AI Geocoding:** Hybrid architecture using Groq LLM to parse conversational/messy area names, combined with LocationIQ for strict, mathematically precise coordinate resolution.
 
 ## Machine Learning Integration
 
-*   **Traffic Prediction Models:** XGBoost Classifier and Regressor models predicting priority (High/Low) and estimated resolution time (in minutes). Inputs include location, corridor frequency, time-of-day, zone, and incident cause.
-*   **Anomaly Detection:** Isolation Forest model monitoring unexpected congestion surges and unplanned disruptions, outputting alert severity scores.
-
+- **Traffic Prediction Models:** XGBoost Classifier and Regressor models predicting priority (High/Low) and estimated resolution time (in minutes). Inputs include location, corridor frequency, time-of-day, zone, and incident cause.
+- **Anomaly Detection:** Isolation Forest model monitoring unexpected congestion surges and unplanned disruptions, outputting alert severity scores.
 
 ## Technology Stack
 
 ### Frontend
-*   **Next.js 16**
-*   **TypeScript**
-*   **Tailwind CSS**
-*   **Leaflet.js** (Interactive mapping and heatmaps)
-*   **Recharts** (Analytics and data visualization)
+
+- **Next.js 16**
+- **React 19**
+- **TypeScript**
+- **Tailwind CSS**
+- **GSAP & Framer Motion** 
+- **Leaflet.js** (Interactive mapping and heatmaps)
+- **Recharts** (Analytics and data visualization)
+- **Vitest** (Unit and component testing)
 
 ### Backend
-*   **Python 3**
-*   **FastAPI** (REST API, Server-Sent Events, background tasks)
-*   **AsyncIO**
+
+- **Python 3**
+- **FastAPI** (REST API, Server-Sent Events, background tasks)
 
 ### Machine Learning & Data Processing
-*   **Scikit-learn** (Preprocessing, Isolation Forest)
-*   **XGBoost** (Classification and regression models)
-*   **Pandas / NumPy** (In-memory data processing and feature engineering)
+
+- **Scikit-learn** (Preprocessing, Isolation Forest)
+- **XGBoost** (Classification and regression models)
+- **Pandas / NumPy** (In-memory data processing and feature engineering)
 
 ### Generative AI
-*   **Groq API** (NLP extraction, geocoding resolution, and action plan generation)
 
+- **Groq API** (NLP extraction, geocoding resolution, and action plan generation)
 
 ## Dashboard Views
 

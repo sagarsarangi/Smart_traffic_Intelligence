@@ -131,11 +131,12 @@ async def startup_event() -> None:
 
     # ── 3. Agent 2: Prediction Agent ────────────────────────────────────────
     logger.info("Initialising Agent 2 (Prediction Agent) …")
+    base_dir = Path(__file__).parent
     prediction_agent = PredictionAgent(
-        classifier_path="backend/models/priority_model.joblib",
-        regressor_path="backend/models/duration_model.joblib",
-        junction_lookup_path="backend/models/junction_lookup.joblib",
-        zone_encoder_path="backend/models/encoders.joblib",
+        classifier_path=str(base_dir / "models/priority_model.joblib"),
+        regressor_path=str(base_dir / "models/duration_model.joblib"),
+        junction_lookup_path=str(base_dir / "models/junction_lookup.joblib"),
+        zone_encoder_path=str(base_dir / "models/encoders.joblib"),
     )
     prediction_agent.load_models()  # logs WARNING if files absent (placeholder mode)
     init_prediction_agent(prediction_agent)
@@ -143,7 +144,7 @@ async def startup_event() -> None:
 
     # ── 4. Agent 3: Anomaly Detector ────────────────────────────────────────
     logger.info("Initialising Agent 3 (Anomaly Detector) …")
-    anomaly_model_path = "backend/models/anomaly_detector.joblib"
+    anomaly_model_path = str(base_dir / "models/anomaly_detector.joblib")
     anomaly_detector = TrafficAnomalyDetector(model_path=anomaly_model_path)
 
     if Path(anomaly_model_path).exists():

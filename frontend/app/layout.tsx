@@ -20,7 +20,7 @@ const spaceMono = Space_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "Smart Traffic Intelligence // Bengaluru",
+    default: "Smart Traffic Intelligence",
     template: "%s // Smart Traffic Intelligence",
   },
   description: "Agentic AI platform for predictive traffic management in Bengaluru — 4 autonomous agents analyzing 8,173 real incidents for priority classification, anomaly detection, and automated response planning.",

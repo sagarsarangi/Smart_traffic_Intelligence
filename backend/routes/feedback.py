@@ -24,6 +24,7 @@ import json
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
+import threading
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException
@@ -37,6 +38,7 @@ router = APIRouter()
 # Feedback file — sits alongside main.py in the backend directory
 # ---------------------------------------------------------------------------
 _FEEDBACK_PATH = Path("backend/feedback.jsonl")
+_write_lock = threading.Lock()
 
 
 # ---------------------------------------------------------------------------
@@ -73,7 +75,7 @@ class FeedbackResponse(BaseModel):
     summary="Record thumbs-up/down rating on an action plan",
     tags=["Feedback"],
 )
-async def post_feedback(request: FeedbackRequest) -> FeedbackResponse:
+def post_feedback(request: FeedbackRequest) -> FeedbackResponse:
     """
     Appends a single JSON line to feedback.jsonl.
     Each entry includes an ISO timestamp, the full incident context,
@@ -90,8 +92,9 @@ async def post_feedback(request: FeedbackRequest) -> FeedbackResponse:
 
     try:
         _FEEDBACK_PATH.parent.mkdir(parents=True, exist_ok=True)
-        with _FEEDBACK_PATH.open("a", encoding="utf-8") as fh:
-            fh.write(json.dumps(entry, ensure_ascii=False) + "\n")
+        with _write_lock:
+            with _FEEDBACK_PATH.open("a", encoding="utf-8") as fh:
+                fh.write(json.dumps(entry, ensure_ascii=False) + "\n")
         logger.info("Feedback recorded: rating=%s", request.rating)
         return FeedbackResponse(status="ok")
     except OSError as exc:

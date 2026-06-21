@@ -34,6 +34,16 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+import sys
+
+if not os.environ.get("GROQ_API_KEY"):
+    logger.critical("No GROQ_API_KEY found in environment. Server cannot start.")
+    sys.exit(1)
+
+if not os.environ.get("LOCATIONIQ_API_KEY"):
+    logger.critical("No LOCATIONIQ_API_KEY found in environment. Server cannot start.")
+    sys.exit(1)
+
 # ---------------------------------------------------------------------------
 # Agent imports (agents/ is owned by another team — read-only)
 # ---------------------------------------------------------------------------

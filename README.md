@@ -20,6 +20,9 @@
 ![Pandas](https://img.shields.io/badge/pandas-%23150458.svg?style=for-the-badge&logo=pandas&logoColor=white)
 ![NumPy](https://img.shields.io/badge/numpy-%23013243.svg?style=for-the-badge&logo=numpy&logoColor=white)
 
+**Live Link**: [https://sti-ai.vercel.app/](https://sti-ai.vercel.app/)  
+**Backend API**: [https://sti-ai-6ui8.onrender.com/](https://sti-ai-6ui8.onrender.com/)
+
 An AI-powered traffic forecasting and decision-support platform built on a dataset of **8,173 real Bengaluru traffic incidents**. It helps authorities predict congestion caused by planned and unplanned events, detect anomalies before they escalate, and auto-generate response plans using Generative AI. By learning the actual congestion behaviors of Bengaluru's unique corridors, the system transitions city operations from reactive to proactive.
 
 ## Problem Statement
@@ -206,10 +209,45 @@ All user interactions funnel into a shared **Incident Panel** drawer that displa
 
 The system is built on a real Bengaluru traffic incident dataset containing 8,173 records. The data includes both planned and unplanned events, specific causes, corridor rankings, multilingual descriptions, and zone/junction metadata.
 
-## Testing & CI
+## Running Locally
 
-The project uses a rigorous CI/CD pipeline via GitHub Actions. External dependencies (Groq API, LocationIQ) are thoroughly mocked to ensure fast, deterministic tests.
+To run the full stack locally on your machine, you'll need Python (for the backend) and Node.js (for the frontend).
 
-- **Backend Tests:** Uses `pytest` with a massive multi-OS/multi-Python matrix. Run locally via `cd backend && pytest`. Covers ~140 scenarios across routes, feature engineering, and agents.
-- **Frontend Tests:** Uses `vitest` and React Testing Library. Run locally via `cd frontend && npm test`.
-- **Deployment:** Vercel (frontend) and Render (backend) deploy automatically on merge to `main`. GitHub Actions acts solely as a quality gate (linting, type-checking, matrix testing) without holding environment secrets, ensuring absolute production safety.
+### 1. Clone the Repository
+
+```bash
+git clone https://github.com/sagarsarangi/Smart_traffic_Intelligence.git
+cd Smart_traffic_Intelligence
+```
+
+### 2. Backend (FastAPI)
+
+First, create a `.env` file in the ROOT folder of the repository and add your API keys:
+
+```env
+GROQ_API_KEY="your_groq_key"
+LOCATIONIQ_API_KEY="your_locationiq_key"
+```
+
+Then, from ROOT folder:
+
+```bash
+cd backend
+python -m venv venv
+venv\Scripts\activate
+pip install -r requirements.txt
+pip install -r requirements-dev.txt
+
+cd ..
+python -m uvicorn backend.main:app --port 8000 --reload
+```
+
+### 3. Frontend (Next.js)
+Again, from ROOT folder:
+
+```bash
+cd frontend
+npm install --legacy-peer-deps 
+npm run dev
+```
+

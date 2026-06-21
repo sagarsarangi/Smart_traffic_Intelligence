@@ -377,7 +377,13 @@ export default function AnalyticsView() {
 
   useEffect(() => {
     const loadData = async () => {
-      const analytics = await fetchAnalytics();
+      let analytics = null;
+      try {
+        analytics = await fetchAnalytics();
+      } catch (error) {
+        console.error('Failed to fetch analytics:', error);
+      }
+
       if (analytics) {
         setData(analytics);
       } else {

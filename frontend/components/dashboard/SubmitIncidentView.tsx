@@ -291,7 +291,7 @@ export default function SubmitIncidentView({ onOpenPanel, onPinDropped }: Submit
                     </h2>
 
                     {/* Mode Toggles */}
-                    <div className="flex flex-col sm:flex-row mb-8 border-3 border-neo-border">
+                    <fieldset disabled={isBusy} className="flex flex-col sm:flex-row mb-8 border-3 border-neo-border disabled:opacity-60 transition-opacity">
                         <button
                             type="button"
                             onClick={() => setMode('structured')}
@@ -313,7 +313,7 @@ export default function SubmitIncidentView({ onOpenPanel, onPinDropped }: Submit
                             <TextAUnderline size={20} weight="bold" className="shrink-0" />
                             <span>Raw Text</span>
                         </button>
-                    </div>
+                    </fieldset>
 
                     {error && (
                         <div className="mb-6 p-4 bg-red-100 border-3 border-neo-border font-mono text-sm text-red-700 font-bold flex items-start gap-2">
@@ -322,7 +322,8 @@ export default function SubmitIncidentView({ onOpenPanel, onPinDropped }: Submit
                         </div>
                     )}
 
-                    <form onSubmit={handleSubmit} className="space-y-6">
+                    <form onSubmit={handleSubmit} className="space-y-0">
+                        <fieldset disabled={isBusy} className="space-y-6 group disabled:opacity-60 transition-opacity min-w-0">
                         {mode === 'nlp' ? (
                             <div className="space-y-5">
                                 <div className="space-y-2">
@@ -523,6 +524,7 @@ export default function SubmitIncidentView({ onOpenPanel, onPinDropped }: Submit
                                 <span className="text-red-500">*</span> Zone / Area and AI Model are required for submission
                             </p>
                         </div>
+                        </fieldset>
                     </form>
                 </div>
             </div>

@@ -86,13 +86,17 @@ export default function IncidentPanel({ isOpen, onClose, data }: IncidentPanelPr
         setSelectedFeedback(rating);
         setFeedbackStatus('submitting');
         
-        await submitFeedback({
-            incident_context: data,
-            action_plan: actionPlan,
-            rating
-        });
-        
-        setFeedbackStatus('submitted');
+        try {
+            await submitFeedback({
+                incident_context: data,
+                action_plan: actionPlan,
+                rating
+            });
+            setFeedbackStatus('submitted');
+        } catch (error) {
+            console.error('Failed to submit feedback:', error);
+            setFeedbackStatus('none');
+        }
     };
 
     if (!data) return null;

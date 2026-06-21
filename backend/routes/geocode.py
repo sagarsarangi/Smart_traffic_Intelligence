@@ -61,9 +61,9 @@ _FEW_SHOT_USER_2 = "Layout near old airport"
 _FEW_SHOT_MODEL_2 = json.dumps({
     "confidence": "ambiguous",
     "candidates": [
-        {"name": "Jeevan Bima Nagar Layout", "lat": 12.0, "lng": 77.0},
-        {"name": "HAL Airport Layout", "lat": 12.0, "lng": 77.0},
-        {"name": "New Thippasandra Layout", "lat": 12.0, "lng": 77.0}
+        {"name": "Jeevan Bima Nagar", "lat": 12.0, "lng": 77.0},
+        {"name": "HAL Airport", "lat": 12.0, "lng": 77.0},
+        {"name": "New Thippasandra", "lat": 12.0, "lng": 77.0}
     ]
 })
 
@@ -127,6 +127,24 @@ def _fetch_coordinates(place_name: str) -> Optional[tuple[float, float]]:
         data = resp.json()
         if data:
             return float(data[0]["lat"]), float(data[0]["lon"])
+            
+        # Fallback: strip out ", Bengaluru" or ", Karnataka" and try the core name
+        if "," in query:
+            core_name = query.split(",")[0].strip()
+            # Also try removing " Layout" if the LLM hallucinated it
+            if core_name.lower().endswith(" layout"):
+                core_name = core_name[:-7].strip()
+                
+            logger.info("  -> Nominatim failed, trying fallback query: %r", core_name)
+            params["q"] = core_name
+            import time
+            time.sleep(1.1)  # Respect rate limit for second call
+            resp = requests.get(url, params=params, headers=headers, timeout=5)
+            resp.raise_for_status()
+            data = resp.json()
+            if data:
+                return float(data[0]["lat"]), float(data[0]["lon"])
+                
     except Exception as exc:
         logger.error("Nominatim lookup failed: %s", exc)
     return None

@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import SubmitIncidentView from '../../components/dashboard/SubmitIncidentView';
 import AnalyticsView from '../../components/dashboard/AnalyticsView';
 import IncidentPanel from '../../components/dashboard/IncidentPanel';
-import { MapTrifold, Plus, ChartBar } from '@phosphor-icons/react';
+import { MapTrifold, Plus, ChartBar, WarningCircle } from '@phosphor-icons/react';
+import { checkBackendHealth } from '../../lib/api';
 import type { IncidentPin } from '../../types/index';
 
 // Leaflet map needs to be dynamically imported with ssr: false
@@ -26,6 +27,21 @@ export default function DashboardPage() {
     const [activeView, setActiveView] = useState<ViewState>('map');
     const [panelData, setPanelData] = useState<any>(null);
     const [isPanelOpen, setIsPanelOpen] = useState(false);
+    const [isBackendActive, setIsBackendActive] = useState<boolean>(true);
+
+    useEffect(() => {
+        let isMounted = true;
+        const pollHealth = async () => {
+            const isHealthy = await checkBackendHealth();
+            if (isMounted) setIsBackendActive(isHealthy);
+        };
+        pollHealth();
+        const interval = setInterval(pollHealth, 3000);
+        return () => {
+            isMounted = false;
+            clearInterval(interval);
+        };
+    }, []);
 
     // ── Incident pins — shared between SubmitIncidentView and MapView ──────────
     // Accumulated over the session; survive view switches but reset on page refresh.
@@ -115,6 +131,22 @@ export default function DashboardPage() {
                         className="absolute inset-0 bg-black/50 z-40 md:hidden backdrop-blur-sm"
                         onClick={closePanel}
                     />
+                )}
+
+                {/* Backend Connection Modal */}
+                {!isBackendActive && (
+                    <div className="absolute inset-0 z-[3000] bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+                        <div className="bg-neo-bg border-4 border-neo-border p-8 shadow-[8px_8px_0_0_rgba(22,51,0,1)] max-w-md w-full flex flex-col items-center text-center">
+                            <WarningCircle size={64} className="text-red-500 mb-4" weight="bold" />
+                            <h2 className="text-2xl font-black uppercase tracking-tighter mb-2">Backend Offline</h2>
+                            <p className="font-mono text-sm text-gray-600 mb-6">
+                                Cannot connect to the server. Waiting for it to come online...
+                            </p>
+                            <div className="w-full h-3 border-2 border-neo-border bg-white overflow-hidden p-0.5">
+                                <div className="h-full bg-primary w-full"></div>
+                            </div>
+                        </div>
+                    </div>
                 )}
             </div>
         </div>

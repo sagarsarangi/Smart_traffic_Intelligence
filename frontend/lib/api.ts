@@ -1,12 +1,29 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
+function handleApiError(error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    // Suppress network fetch errors from spamming the console when the backend is down
+    if (!msg.includes('Failed to fetch') && !msg.includes('NetworkError') && !msg.includes('fetch failed')) {
+        console.error(error);
+    }
+}
+
+export async function checkBackendHealth() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/health`);
+        return response.ok;
+    } catch (error) {
+        return false;
+    }
+}
+
 export async function fetchHeatmap() {
     try {
         const response = await fetch(`${API_BASE_URL}/heatmap`);
         if (!response.ok) throw new Error('Failed to fetch heatmap data');
         return await response.json();
     } catch (error) {
-        console.error(error);
+        handleApiError(error);
         return [];
     }
 }
@@ -23,7 +40,7 @@ export async function fetchIncidents(params: { zone?: string, priority?: string,
         if (!response.ok) throw new Error('Failed to fetch incidents');
         return await response.json();
     } catch (error) {
-        console.error(error);
+        handleApiError(error);
         return [];
     }
 }
@@ -40,7 +57,7 @@ export async function fetchAnomalyScores(): Promise<{ zones: any[]; progress: { 
         }
         return data;
     } catch (error) {
-        console.error(error);
+        handleApiError(error);
         return { zones: [], progress: { done: 0, total: 0, finished: false } };
     }
 }
@@ -51,7 +68,7 @@ export async function fetchAnalytics() {
         if (!response.ok) throw new Error('Failed to fetch analytics');
         return await response.json();
     } catch (error) {
-        console.error("Analytics endpoint might not exist, using local mock data.", error);
+        handleApiError(error);
         return null;
     }
 }
@@ -66,7 +83,7 @@ export async function parseNLPDescription(description: string, model?: string) {
         if (!response.ok) throw new Error('Failed to parse NLP description');
         return await response.json();
     } catch (error) {
-        console.error(error);
+        handleApiError(error);
         return null;
     }
 }
@@ -81,7 +98,7 @@ export async function predictIncident(features: any) {
         if (!response.ok) throw new Error('Failed to predict incident');
         return await response.json();
     } catch (error) {
-        console.error(error);
+        handleApiError(error);
         return null;
     }
 }
@@ -96,7 +113,7 @@ export async function submitFeedback(feedback: { incident_context: any, action_p
         if (!response.ok) throw new Error('Failed to submit feedback');
         return await response.json();
     } catch (error) {
-        console.error(error);
+        handleApiError(error);
         return null;
     }
 }
@@ -113,7 +130,7 @@ export async function resetAnomalyReplay(): Promise<{ zones: any[]; progress: { 
         }
         return data;
     } catch (error) {
-        console.error(error);
+        handleApiError(error);
         return null;
     }
 }
@@ -125,7 +142,7 @@ export async function fetchHeatmapReplay() {
         if (!response.ok) throw new Error('Failed to fetch heatmap replay');
         return await response.json();
     } catch (error) {
-        console.error(error);
+        handleApiError(error);
         return null;
     }
 }
@@ -139,7 +156,7 @@ export async function resetHeatmapReplay() {
         if (!response.ok) throw new Error('Failed to reset heatmap replay');
         return await response.json();
     } catch (error) {
-        console.error(error);
+        handleApiError(error);
         return null;
     }
 }

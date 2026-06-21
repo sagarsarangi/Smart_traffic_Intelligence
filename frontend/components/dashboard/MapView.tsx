@@ -286,10 +286,14 @@ export default function MapView({ onOpenPanel, incidentPins = [], onNewIncident 
     // ── Anomaly polling — 5 s interval, reset by anomalyPollKey ─────────────
     useEffect(() => {
         const poll = async () => {
-            const res = await fetchAnomalyScores();
-            if (res) {
-                setAnomalies(sortAnomalies(res.zones ?? []));
-                setAnomalyProgress(res.progress ?? { done: 0, total: 0, finished: false });
+            try {
+                const res = await fetchAnomalyScores();
+                if (res) {
+                    setAnomalies(sortAnomalies(res.zones ?? []));
+                    setAnomalyProgress(res.progress ?? { done: 0, total: 0, finished: false });
+                }
+            } catch (error) {
+                console.error('Failed to fetch anomaly scores:', error);
             }
         };
         poll();
@@ -305,7 +309,13 @@ export default function MapView({ onOpenPanel, incidentPins = [], onNewIncident 
 
     /** Poll the backend every 5 s and push the new point list into state. */
     const pollReplay = useCallback(async () => {
-        const res = await fetchHeatmapReplay();
+        let res;
+        try {
+            res = await fetchHeatmapReplay();
+        } catch (error) {
+            console.error('Failed to fetch heatmap replay:', error);
+            return;
+        }
         if (!res || !Array.isArray(res)) return;
 
         const pts: Array<[number, number, number]> = res.map(
@@ -329,21 +339,26 @@ export default function MapView({ onOpenPanel, incidentPins = [], onNewIncident 
 
 
     const startReplay = useCallback(async () => {
-        // Reset backend accumulator to start from the first row of the dataset
-        await resetHeatmapReplay();
+        try {
+            // Reset backend accumulator to start from the first row of the dataset
+            await resetHeatmapReplay();
 
-        // Reset local state
-        setReplayHeatmap([]);
-        setReplayStatus('running');
-        lastPointCountRef.current = 0;
-        stableCountRef.current = 0;
+            // Reset local state
+            setReplayHeatmap([]);
+            setReplayStatus('running');
+            lastPointCountRef.current = 0;
+            stableCountRef.current = 0;
 
-        // Clear any existing interval before starting a new one
-        if (replayIntervalRef.current) clearInterval(replayIntervalRef.current);
+            // Clear any existing interval before starting a new one
+            if (replayIntervalRef.current) clearInterval(replayIntervalRef.current);
 
-        // Poll immediately and then every 5 s
-        await pollReplay();
-        replayIntervalRef.current = setInterval(pollReplay, 5000);
+            // Poll immediately and then every 5 s
+            await pollReplay();
+            replayIntervalRef.current = setInterval(pollReplay, 5000);
+        } catch (error) {
+            console.error('Failed to start heatmap replay:', error);
+            setReplayStatus('idle');
+        }
     }, [pollReplay]);
 
     const stopReplay = useCallback(() => {
@@ -379,20 +394,25 @@ export default function MapView({ onOpenPanel, incidentPins = [], onNewIncident 
             zone: zoneData.zone || undefined,
             start_datetime: new Date().toISOString(),
         };
-        const prediction = await predictIncident(zoneFeatures);
-        setAnomalyPickerLoading(false);
-        setAnomalyModelPickerZone(null);
-        setIsAnomalyModalOpen(false);
-        onOpenPanel({
-            zone: zoneData.zone,
-            event_cause: 'congestion',
-            event_type: 'unplanned',
-            is_zone_alert: true,
-            ...prediction,
-            priority: zoneData.alert_level === 'Critical' ? 'High' : 'Low',
-            confidence: Math.abs(zoneData.anomaly_score ?? 0),
-            selected_model: modelId,
-        });
+        try {
+            const prediction = await predictIncident(zoneFeatures);
+            setAnomalyPickerLoading(false);
+            setAnomalyModelPickerZone(null);
+            setIsAnomalyModalOpen(false);
+            onOpenPanel({
+                zone: zoneData.zone,
+                event_cause: 'congestion',
+                event_type: 'unplanned',
+                is_zone_alert: true,
+                ...prediction,
+                priority: zoneData.alert_level === 'Critical' ? 'High' : 'Low',
+                confidence: Math.abs(zoneData.anomaly_score ?? 0),
+                selected_model: modelId,
+            });
+        } catch (error) {
+            console.error('Failed to get prediction:', error);
+            setAnomalyPickerLoading(false);
+        }
     };
 
 
@@ -464,10 +484,11 @@ export default function MapView({ onOpenPanel, incidentPins = [], onNewIncident 
             {isAnomalyModalOpen && (
                 <div
                     className="absolute inset-0 bg-black/60 z-[2000] flex items-center justify-center p-4 backdrop-blur-sm"
-                    onClick={() => setIsAnomalyModalOpen(false)}
+                    onClick={() => !anomalyPickerLoading && setIsAnomalyModalOpen(false)}
                 >
-                    <div
-                        className="bg-neo-bg border-4 border-neo-border w-full max-w-md max-h-full flex flex-col shadow-[-8px_8px_0_0_rgba(22,51,0,1)] pointer-events-auto"
+                    <fieldset
+                        disabled={anomalyPickerLoading}
+                        className="bg-neo-bg border-4 border-neo-border w-full max-w-md max-h-full flex flex-col shadow-[-8px_8px_0_0_rgba(22,51,0,1)] pointer-events-auto disabled:opacity-80 transition-opacity min-w-0 m-0 p-0"
                         onClick={(e) => e.stopPropagation()}
                     >
                         {/* Modal Header */}
@@ -491,11 +512,15 @@ export default function MapView({ onOpenPanel, incidentPins = [], onNewIncident 
                                 )}
                                 <button
                                     onClick={async () => {
-                                        const resetState = await resetAnomalyReplay();
-                                        if (resetState) {
-                                            setAnomalies(sortAnomalies(resetState.zones ?? []));
-                                            setAnomalyProgress(resetState.progress ?? { done: 0, total: 0, finished: false });
-                                            setAnomalyPollKey(k => k + 1);
+                                        try {
+                                            const resetState = await resetAnomalyReplay();
+                                            if (resetState) {
+                                                setAnomalies(sortAnomalies(resetState.zones ?? []));
+                                                setAnomalyProgress(resetState.progress ?? { done: 0, total: 0, finished: false });
+                                                setAnomalyPollKey(k => k + 1);
+                                            }
+                                        } catch (error) {
+                                            console.error('Failed to reset anomaly replay:', error);
                                         }
                                     }}
                                     className="px-3 py-1 text-sm font-bold border-2 border-neo-border bg-white hover:bg-neo-secondary transition-colors flex items-center gap-2 uppercase"
@@ -590,7 +615,7 @@ export default function MapView({ onOpenPanel, incidentPins = [], onNewIncident 
                                 ))
                             )}
                         </div>
-                    </div>
+                    </fieldset>
                 </div>
             )}
 

@@ -29,6 +29,8 @@ export const metadata: Metadata = {
   },
 };
 
+import NextTopLoader from 'nextjs-toploader';
+
 export default function RootLayout({
   children,
 }: {
@@ -39,6 +41,7 @@ export default function RootLayout({
       <body
         className={`${spaceGrotesk.variable} ${spaceMono.variable} font-display bg-neo-bg text-neo-text`}
       >
+        <NextTopLoader color="#163300" height={4} showSpinner={false} shadow="none" />
         <ClientLayout>{children}</ClientLayout>
       </body>
     </html>

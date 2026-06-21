@@ -35,7 +35,8 @@
         "./types/*"
       ]
     },
-    "target": "ES2017"
+    "target": "ES2017",
+    "types": ["vitest/globals", "@testing-library/jest-dom"]
   },
   "include": [
     "next-env.d.ts",

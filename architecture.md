@@ -784,5 +784,6 @@ Build Submit Incident form (both input modes) → wire three-step API sequence (
 | 2026-06-19 | Added Geocoding (/geocode-zone) for mandatory zone resolution, ZoneClarificationModal, and Map Pin layer. | AI Assistant |
 | 2026-06-18 | Architecture updated to reflect actual Next.js, Groq API, and feature implementations.                    | AI Assistant |
 | 2025-06-16 | Initial architecture.md created from agents.md                                                            | —            |
+| 2026-06-21 | Added robust CI/CD pipeline scaffolding, GitHub Actions workflows, Vitest setup for frontend, and ~200 test shells covering backend feature engineering, anomaly detection, routing, and models. Mocked external API interactions. | AI Assistant |
 
 > All subsequent structural changes must be added as rows here before merging. This includes: new or removed endpoints, changes to feature vectors, agent prompt updates, UI view changes, new libraries or dependencies.

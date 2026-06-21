@@ -199,3 +199,11 @@ All user interactions funnel into a shared **Incident Panel** drawer that displa
 ## Dataset Information
 
 The system is built on a real Bengaluru traffic incident dataset containing 8,173 records. The data includes both planned and unplanned events, specific causes, corridor rankings, multilingual descriptions, and zone/junction metadata.
+
+## Testing & CI
+
+The project uses a rigorous CI/CD pipeline via GitHub Actions. External dependencies (Groq API, OpenStreetMap Nominatim) are thoroughly mocked to ensure fast, deterministic tests.
+
+- **Backend Tests:** Uses `pytest` with a massive multi-OS/multi-Python matrix. Run locally via `cd backend && pytest`. Covers ~140 scenarios across routes, feature engineering, and agents.
+- **Frontend Tests:** Uses `vitest` and React Testing Library. Run locally via `cd frontend && npm test`.
+- **Deployment:** Vercel (frontend) and Render (backend) deploy automatically on merge to `main`. GitHub Actions acts solely as a quality gate (linting, type-checking, matrix testing) without holding environment secrets, ensuring absolute production safety.

@@ -34,7 +34,8 @@ if str(_PROJECT_ROOT) not in sys.path:
 # Tests must never hit a real external API. Strip any locally-configured key
 # BEFORE the app is imported so agents initialise in their "no key" state,
 # then individual tests can opt back in via monkeypatch where needed.
-os.environ.pop("GROQ_API_KEY", None)
+os.environ["GROQ_API_KEY"] = "dummy-groq-key-for-tests"
+os.environ["LOCATIONIQ_API_KEY"] = "dummy-locationiq-key-for-tests"
 
 import requests  # noqa: E402  (after sys.path manipulation)
 

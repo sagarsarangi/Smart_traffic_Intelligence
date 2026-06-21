@@ -124,7 +124,7 @@ def _fetch_coordinates(place_name: str) -> Optional[tuple[float, float]]:
     url = "https://nominatim.openstreetmap.org/search"
     params = {"q": query, "format": "json", "limit": 1, "countrycodes": "in"}
     # Use a more specific User-Agent to avoid being blocked for generic contact info
-    headers = {"User-Agent": "SmartTrafficIntelligence/1.2 (contact: saran.traffic@example.com)"}
+    headers = {"User-Agent": "SmartTrafficIntelligence/1.3 (https://github.com/sagarsarangi/Smart_traffic_Intelligence)"}
 
     # Proactively sleep to ensure we never burst Nominatim across multiple rapid calls
     time.sleep(1.5)

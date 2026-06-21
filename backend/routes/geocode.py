@@ -120,26 +120,30 @@ _nominatim_lock = threading.Lock()
 
 @functools.lru_cache(maxsize=256)
 def _fetch_coordinates(place_name: str) -> Optional[tuple[float, float]]:
-    """Calls Nominatim to fetch exact lat/lng for a given place name."""
+    """Calls LocationIQ to fetch exact lat/lng for a given place name."""
     query = place_name.strip()
+    
+    locationiq_key = os.environ.get("LOCATIONIQ_API_KEY")
+    if not locationiq_key:
+        logger.error("LOCATIONIQ_API_KEY is not set. Geocoding cannot proceed.")
+        return None
 
-    logger.info("  -> Calling Nominatim with query: %r", query)
+    logger.info("  -> Calling LocationIQ with query: %r", query)
 
-    url = "https://nominatim.openstreetmap.org/search"
-    params = {"q": query, "format": "json", "limit": 1, "countrycodes": "in"}
-    # Nominatim requests MUST include a valid email in the User-Agent
-    headers = {"User-Agent": "SmartTrafficIntelligence/1.3 (sarangisagar9@gmail.com)"}
+    url = "https://us1.locationiq.com/v1/search"
+    params = {"key": locationiq_key, "q": query, "format": "json", "limit": 1, "countrycodes": "in"}
+    headers = {"User-Agent": "SmartTrafficIntelligence/1.3"}
 
     for attempt in range(2):
         try:
             # We acquire the global lock before making the request
             with _nominatim_lock:
-                # Proactively sleep WHILE holding the lock to ensure absolute minimum 1.5s between requests globally
-                time.sleep(1.5)
+                # LocationIQ allows 2 req/sec. We sleep 0.55s to be safe.
+                time.sleep(0.55)
                 resp = requests.get(url, params=params, headers=headers, timeout=15)
             if resp.status_code == 429:
-                logger.warning("Nominatim rate limited (429). Sleeping for 3 seconds and retrying...")
-                time.sleep(3)
+                logger.warning("LocationIQ rate limited (429). Sleeping for 2 seconds and retrying...")
+                time.sleep(2)
                 continue
             
             resp.raise_for_status()
@@ -154,18 +158,18 @@ def _fetch_coordinates(place_name: str) -> Optional[tuple[float, float]]:
                 if core_name.lower().endswith(" layout"):
                     core_name = core_name[:-7].strip()
                     
-                logger.info("  -> Nominatim failed, trying fallback query: %r", core_name)
+                logger.info("  -> LocationIQ failed, trying fallback query: %r", core_name)
                 params["q"] = core_name
                 # Respect rate limit for second call by using the global lock
                 with _nominatim_lock:
-                    time.sleep(2.0)
+                    time.sleep(0.55)
                     resp = requests.get(url, params=params, headers=headers, timeout=15)
                 
                 if resp.status_code == 429:
-                    logger.warning("Nominatim rate limited (429) on fallback. Sleeping for 3 seconds...")
-                    time.sleep(3)
+                    logger.warning("LocationIQ rate limited (429) on fallback. Sleeping for 2 seconds...")
+                    time.sleep(2)
                     with _nominatim_lock:
-                        time.sleep(1.5)
+                        time.sleep(0.55)
                         resp = requests.get(url, params=params, headers=headers, timeout=15)
                     
                 resp.raise_for_status()
@@ -178,10 +182,10 @@ def _fetch_coordinates(place_name: str) -> Optional[tuple[float, float]]:
             
         except Exception as exc:
             if "429" in str(exc) and attempt == 0:
-                logger.warning("Nominatim rate limited exception (429). Sleeping for 3 seconds and retrying...")
-                time.sleep(3)
+                logger.warning("LocationIQ rate limited exception (429). Sleeping for 2 seconds and retrying...")
+                time.sleep(2)
                 continue
-            logger.error("Nominatim lookup failed: %s", exc)
+            logger.error("LocationIQ lookup failed: %s", exc)
             break
             
     return None

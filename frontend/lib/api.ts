@@ -10,7 +10,7 @@ function handleApiError(error: unknown) {
 
 export async function checkBackendHealth() {
     try {
-        const response = await fetch(`${API_BASE_URL}/health`);
+        const response = await fetch(`${API_BASE_URL}/ping`);
         return response.ok;
     } catch (error) {
         return false;

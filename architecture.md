@@ -81,9 +81,9 @@ A real-time traffic intelligence dashboard for Bengaluru traffic authorities. Th
 
 All endpoints are served by FastAPI. The dataset DataFrame and all trained models are loaded into memory at server startup. No database is used.
 
-### `GET /health`
+### `GET /ping`
 
-**Purpose:** Quick liveness probe.
+**Purpose:** Quick liveness probe to verify the server is running.
 
 **Input:** None.
 

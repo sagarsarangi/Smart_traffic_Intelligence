@@ -215,8 +215,8 @@ async def shutdown_event() -> None:
 # Health check
 # ---------------------------------------------------------------------------
 
-@app.get("/health", tags=["System"])
-async def health_check():
+@app.get("/ping", tags=["System"])
+async def ping_check():
     """Quick liveness probe — returns 200 OK with server status."""
     return {
         "status": "ok",

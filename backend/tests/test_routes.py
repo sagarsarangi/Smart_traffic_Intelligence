@@ -1,5 +1,5 @@
-def test_health(client):
-    res = client.get("/health")
+def test_ping(client):
+    res = client.get("/ping")
     assert res.status_code == 200
 
 def test_heatmap_shape_and_weights(client):

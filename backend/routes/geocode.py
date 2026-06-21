@@ -148,6 +148,18 @@ def _fetch_coordinates(place_name: str) -> Optional[tuple[float, float]]:
             
             resp.raise_for_status()
             data = resp.json()
+            
+            # Verify the geocoder didn't ignore the specific place and return a generic city center
+            if data and "," in query:
+                core_name = query.split(",")[0].strip()
+                core_name_clean = core_name.lower().replace(" layout", "")
+                display_name = data[0].get("display_name", "").lower()
+                
+                # if the specific place name isn't anywhere in the result, the geocoder ignored it
+                if core_name_clean not in display_name:
+                    logger.warning("  -> LocationIQ ignored core name %r. Rejecting generic result: %s", core_name_clean, data[0].get("display_name", "Unknown"))
+                    data = [] # force the fallback block below
+                    
             if data:
                 logger.info("  -> LocationIQ returned: %s (lat: %s, lon: %s)", data[0].get("display_name", "Unknown"), data[0]["lat"], data[0]["lon"])
                 return float(data[0]["lat"]), float(data[0]["lon"])

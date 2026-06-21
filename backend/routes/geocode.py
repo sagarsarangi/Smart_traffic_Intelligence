@@ -113,6 +113,10 @@ def _call_groq_parser(zone_input: str) -> Optional[Dict[str, Any]]:
 
 import time
 import functools
+import threading
+
+# Global lock to ensure only one Nominatim request happens at a time across all threads
+_nominatim_lock = threading.Lock()
 
 @functools.lru_cache(maxsize=256)
 def _fetch_coordinates(place_name: str) -> Optional[tuple[float, float]]:
@@ -123,15 +127,16 @@ def _fetch_coordinates(place_name: str) -> Optional[tuple[float, float]]:
 
     url = "https://nominatim.openstreetmap.org/search"
     params = {"q": query, "format": "json", "limit": 1, "countrycodes": "in"}
-    # Use a more specific User-Agent to avoid being blocked for generic contact info
-    headers = {"User-Agent": "SmartTrafficIntelligence/1.3 (https://github.com/sagarsarangi/Smart_traffic_Intelligence)"}
-
-    # Proactively sleep to ensure we never burst Nominatim across multiple rapid calls
-    time.sleep(1.5)
+    # Nominatim requests MUST include a valid email in the User-Agent
+    headers = {"User-Agent": "SmartTrafficIntelligence/1.3 (sarangisagar9@gmail.com)"}
 
     for attempt in range(2):
         try:
-            resp = requests.get(url, params=params, headers=headers, timeout=15)
+            # We acquire the global lock before making the request
+            with _nominatim_lock:
+                # Proactively sleep WHILE holding the lock to ensure absolute minimum 1.5s between requests globally
+                time.sleep(1.5)
+                resp = requests.get(url, params=params, headers=headers, timeout=15)
             if resp.status_code == 429:
                 logger.warning("Nominatim rate limited (429). Sleeping for 3 seconds and retrying...")
                 time.sleep(3)
@@ -151,13 +156,17 @@ def _fetch_coordinates(place_name: str) -> Optional[tuple[float, float]]:
                     
                 logger.info("  -> Nominatim failed, trying fallback query: %r", core_name)
                 params["q"] = core_name
-                time.sleep(2.0)  # Respect rate limit for second call
-                resp = requests.get(url, params=params, headers=headers, timeout=15)
+                # Respect rate limit for second call by using the global lock
+                with _nominatim_lock:
+                    time.sleep(2.0)
+                    resp = requests.get(url, params=params, headers=headers, timeout=15)
                 
                 if resp.status_code == 429:
                     logger.warning("Nominatim rate limited (429) on fallback. Sleeping for 3 seconds...")
                     time.sleep(3)
-                    resp = requests.get(url, params=params, headers=headers, timeout=15)
+                    with _nominatim_lock:
+                        time.sleep(1.5)
+                        resp = requests.get(url, params=params, headers=headers, timeout=15)
                     
                 resp.raise_for_status()
                 data = resp.json()

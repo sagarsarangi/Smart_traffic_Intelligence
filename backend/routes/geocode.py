@@ -61,10 +61,18 @@ _FEW_SHOT_USER_2 = "Layout near old airport"
 _FEW_SHOT_MODEL_2 = json.dumps({
     "confidence": "ambiguous",
     "candidates": [
-        {"name": "Jeevan Bima Nagar", "lat": 12.0, "lng": 77.0},
-        {"name": "HAL Airport", "lat": 12.0, "lng": 77.0},
-        {"name": "New Thippasandra", "lat": 12.0, "lng": 77.0}
+        {"name": "Jeevan Bima Nagar, Bengaluru, Karnataka", "lat": 12.0, "lng": 77.0},
+        {"name": "HAL Airport, Bengaluru, Karnataka", "lat": 12.0, "lng": 77.0},
+        {"name": "New Thippasandra, Bengaluru, Karnataka", "lat": 12.0, "lng": 77.0}
     ]
+})
+
+_FEW_SHOT_USER_3 = "Panambur beach"
+_FEW_SHOT_MODEL_3 = json.dumps({
+    "confidence": "high",
+    "lat": 12.9,
+    "lng": 74.8,
+    "resolved_name": "Panambur Beach, Mangaluru, Karnataka"
 })
 
 # ---------------------------------------------------------------------------
@@ -96,6 +104,8 @@ def _call_groq_parser(zone_input: str) -> Optional[Dict[str, Any]]:
             {"role": "assistant", "content": _FEW_SHOT_MODEL},
             {"role": "user",      "content": _FEW_SHOT_USER_2},
             {"role": "assistant", "content": _FEW_SHOT_MODEL_2},
+            {"role": "user",      "content": _FEW_SHOT_USER_3},
+            {"role": "assistant", "content": _FEW_SHOT_MODEL_3},
             {"role": "user",      "content": zone_input.strip()},
         ],
     }
@@ -138,8 +148,8 @@ def _fetch_coordinates(place_name: str) -> Optional[tuple[float, float]]:
         try:
             # We acquire the global lock before making the request
             with _locationiq_lock:
-                # LocationIQ allows 2 req/sec. We sleep 0.55s to be safe.
-                time.sleep(0.55)
+                # LocationIQ allows 2 req/sec. We sleep 1.1s to be safe.
+                time.sleep(1.1)
                 resp = requests.get(url, params=params, headers=headers, timeout=15)
             if resp.status_code == 429:
                 logger.warning("LocationIQ rate limited (429). Sleeping for 2 seconds and retrying...")
@@ -175,14 +185,14 @@ def _fetch_coordinates(place_name: str) -> Optional[tuple[float, float]]:
                 params["q"] = core_name
                 # Respect rate limit for second call by using the global lock
                 with _locationiq_lock:
-                    time.sleep(0.55)
+                    time.sleep(1.1)
                     resp = requests.get(url, params=params, headers=headers, timeout=15)
                 
                 if resp.status_code == 429:
                     logger.warning("LocationIQ rate limited (429) on fallback. Sleeping for 2 seconds...")
                     time.sleep(2)
                     with _locationiq_lock:
-                        time.sleep(0.55)
+                        time.sleep(1.1)
                         resp = requests.get(url, params=params, headers=headers, timeout=15)
                     
                 resp.raise_for_status()
@@ -228,14 +238,11 @@ def _hybrid_geocode(zone_input: str) -> Optional[Dict[str, Any]]:
         candidates = parsed.get("candidates", [])
         valid = []
         logger.info("LLM returned %d ambiguous candidates. Verifying with LocationIQ...", len(candidates))
-        import time
         for c in candidates:
             name = c.get("name", "Unknown")
             coords = _fetch_coordinates(name)
             if coords:
                 valid.append({"name": name, "lat": coords[0], "lng": coords[1]})
-            # Respect 's 1 req/sec strict limit
-            time.sleep(1.1)
         
         if valid:
             return {"confidence": "ambiguous", "candidates": valid}
@@ -259,7 +266,12 @@ async def geocode_zone(request: GeocodeZoneRequest) -> Dict[str, Any]:
 
     logger.info("Geocoding zone (Hybrid LLM+LocationIQ): %r", zone_input)
 
-    result = await asyncio.to_thread(_hybrid_geocode, zone_input)
+    try:
+        # Enforce an absolute 25s timeout for the entire geocoding process
+        result = await asyncio.wait_for(asyncio.to_thread(_hybrid_geocode, zone_input), timeout=25.0)
+    except asyncio.TimeoutError:
+        logger.error("Geocoding process timed out.")
+        return {"confidence": "failed", "message": "Geocoding service timed out."}
 
     if result is None:
         return {"confidence": "failed", "message": "Geocoding service unavailable."}

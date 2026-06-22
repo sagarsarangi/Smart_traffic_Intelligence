@@ -16,6 +16,12 @@ export default function ClientLayout({
     window.scrollTo(0, 0);
   }, [pathname]);
 
+  // Silent wake-up ping for Render cold starts
+  useEffect(() => {
+    // Fire and forget: this will wake up the backend if it's sleeping
+    fetch(process.env.NEXT_PUBLIC_API_URL + '/ping').catch(() => {});
+  }, []);
+
   return (
     <>
       <NeoNavbar />

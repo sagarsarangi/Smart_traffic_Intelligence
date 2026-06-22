@@ -108,7 +108,7 @@ sequenceDiagram
 
 ### 2. Live Anomaly Detection
 
-The system continuously evaluates traffic conditions across city zones to identify anomalous congestion patterns before they escalate.
+The system evaluates traffic conditions across city zones to identify anomalous congestion patterns before they escalate. The simulation starts in a **paused standby state** to conserve resources. When the user initiates it, a background loop streams incidents chronologically, and can be paused or resumed at any time.
 
 ```mermaid
 sequenceDiagram
@@ -117,7 +117,8 @@ sequenceDiagram
     participant Task as Background Loop
     participant IF as Isolation Forest
 
-    loop Every 0.07s (Dataset Replay)
+    UI->>API: POST /anomaly/start
+    loop Every 0.07s (When Active)
         Task->>Task: Update sliding window (24h eviction)
         Task->>IF: Compute metrics (count, ratio, duration)
         IF-->>Task: Return Anomaly Scores
@@ -129,6 +130,7 @@ sequenceDiagram
         API-->>UI: Alert Levels (Normal/Watch/Critical)
         UI->>UI: Update Anomaly Sidebar
     end
+    UI->>API: POST /anomaly/pause
 ```
 
 ### 3. Dynamic City Heatmap

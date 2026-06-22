@@ -341,6 +341,18 @@ Frontend polls this endpoint every 10 seconds and updates badge colors on the An
 
 ---
 
+### `POST /anomaly/start`
+
+**Purpose:** Starts or resumes the anomaly replay loop. If the dataset was exhausted, it resets and restarts from the beginning.
+
+---
+
+### `POST /anomaly/pause`
+
+**Purpose:** Pauses the anomaly replay loop in place, suspending the stream without losing progress.
+
+---
+
 ### `POST /anomaly/replay`
 
 **Purpose:** Resets the anomaly replay loop to the beginning of the dataset, clearing accumulators and starting the stream from index 0.
@@ -507,7 +519,7 @@ Models are serialized with joblib and loaded at server startup. Inference: < 100
 
 Each combination becomes one row (a 3D feature vector). The Isolation Forest is trained on all rows.
 
-**Replay mechanism:** During the demo, the backend streams a small batch of chronological incidents every 0.07 seconds into a per-zone sliding-window deque (incidents older than 24 hours of simulated time are evicted). The three statistics are computed from this sliding window state per zone and fed to the Isolation Forest. When the dataset is exhausted, the replay loop stops and freezes at the final state.
+**Replay mechanism:** The replay loop starts in a paused standby state to conserve resources. When the user initiates "Start", the backend streams a small batch of chronological incidents every 0.07 seconds into a per-zone sliding-window deque (incidents older than 24 hours of simulated time are evicted). The loop can be paused and resumed at any time. The three statistics are computed from this sliding window state per zone and fed to the Isolation Forest. When the dataset is exhausted, the replay loop stops and freezes at the final state.
 
 **Output per zone:**
 

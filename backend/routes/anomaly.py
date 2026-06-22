@@ -55,8 +55,8 @@ router = APIRouter()
 # ---------------------------------------------------------------------------
 # Shared state — written by background task, read by endpoint
 # ---------------------------------------------------------------------------
-# Cache shape: {"zones": [...], "progress": {"done": int, "total": int, "finished": bool}}
-_anomaly_cache: Dict[str, Any] = {"zones": [], "progress": {"done": 0, "total": 0, "finished": False}}
+# Cache shape: {"zones": [...], "progress": {"done": int, "total": int, "finished": bool, "is_paused": bool}}
+_anomaly_cache: Dict[str, Any] = {"zones": [], "progress": {"done": 0, "total": 0, "finished": False, "is_paused": True}}
 _detector: Optional[TrafficAnomalyDetector] = None
 
 # How many incidents to stream in per tick
@@ -79,6 +79,7 @@ _reset_event: asyncio.Event = asyncio.Event()
 
 # Read-only flags
 _replay_finished: bool = False
+_is_paused: bool = True
 
 
 # ---------------------------------------------------------------------------
@@ -194,7 +195,7 @@ async def anomaly_replay_loop(df: pd.DataFrame) -> None:
                 }
                 for zone in all_zones
             ],
-            "progress": {"done": 0, "total": total_rows, "finished": False},
+            "progress": {"done": 0, "total": total_rows, "finished": False, "is_paused": _is_paused},
         }
 
         anchor = asyncio.get_running_loop().time()
@@ -227,6 +228,13 @@ async def anomaly_replay_loop(df: pd.DataFrame) -> None:
             # Sleep for exactly one tick interval before starting to accumulate,
             # so the first real update comes at t=INTERVAL (consistent with startup).
             await asyncio.sleep(_REPLAY_INTERVAL_SECONDS)
+            continue
+
+        if _is_paused:
+            # While paused, constantly shift the start time forward so that
+            # when we unpause, expected_ticks won't jump.
+            replay_start_time = asyncio.get_running_loop().time() - (processed_ticks * _REPLAY_INTERVAL_SECONDS)
+            await asyncio.sleep(0.1)
             continue
 
         try:
@@ -331,6 +339,7 @@ async def anomaly_replay_loop(df: pd.DataFrame) -> None:
                                 "done": min(processed_ticks * _INCIDENTS_PER_TICK, total_rows),
                                 "total": total_rows,
                                 "finished": _replay_finished,
+                                "is_paused": _is_paused,
                             },
                         }
 
@@ -338,7 +347,7 @@ async def anomaly_replay_loop(df: pd.DataFrame) -> None:
                 placeholder = _build_placeholder_cache(df_work)
                 _anomaly_cache = {
                     "zones": placeholder,
-                    "progress": {"done": 0, "total": total_rows, "finished": False},
+                    "progress": {"done": 0, "total": total_rows, "finished": False, "is_paused": _is_paused},
                 }
 
         except Exception as exc:
@@ -412,9 +421,9 @@ async def get_anomaly() -> Dict[str, Any]:
             df_work["_zone_or_station"] = zone_series.fillna(ps_series).fillna("Unknown")
             total = len(df_work)
             placeholder = _build_placeholder_cache(df_work)
-            return {"zones": placeholder, "progress": {"done": 0, "total": total, "finished": False}}
+            return {"zones": placeholder, "progress": {"done": 0, "total": total, "finished": False, "is_paused": _is_paused}}
         except Exception:
-            return {"zones": [], "progress": {"done": 0, "total": 0, "finished": False}}
+            return {"zones": [], "progress": {"done": 0, "total": 0, "finished": False, "is_paused": _is_paused}}
 
     return _anomaly_cache
 
@@ -447,11 +456,39 @@ async def reset_anomaly_replay() -> Dict[str, Any]:
     ]
     _anomaly_cache = {
         "zones": zeroed_zones,
-        "progress": {"done": 0, "total": current_total, "finished": False},
+        "progress": {"done": 0, "total": current_total, "finished": False, "is_paused": _is_paused},
     }
 
     # Signal the loop — it will re-anchor on its next iteration.
     _reset_event.set()
 
     logger.info("Anomaly replay reset requested via POST /anomaly/replay — event signalled.")
+    return _anomaly_cache
+
+
+@router.post(
+    "/anomaly/start",
+    summary="Start or resume the anomaly replay",
+    tags=["Anomaly"],
+)
+async def start_anomaly_replay() -> Dict[str, Any]:
+    global _is_paused, _replay_finished
+    if _replay_finished:
+        # If it was finished, starting it again means resetting it.
+        await reset_anomaly_replay()
+    _is_paused = False
+    _anomaly_cache["progress"]["is_paused"] = False
+    logger.info("Anomaly replay started.")
+    return _anomaly_cache
+
+@router.post(
+    "/anomaly/pause",
+    summary="Pause the anomaly replay",
+    tags=["Anomaly"],
+)
+async def pause_anomaly_replay() -> Dict[str, Any]:
+    global _is_paused
+    _is_paused = True
+    _anomaly_cache["progress"]["is_paused"] = True
+    logger.info("Anomaly replay paused.")
     return _anomaly_cache

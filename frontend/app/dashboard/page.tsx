@@ -1,12 +1,12 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import SubmitIncidentView from '../../components/dashboard/SubmitIncidentView';
 import AnalyticsView from '../../components/dashboard/AnalyticsView';
 import IncidentPanel from '../../components/dashboard/IncidentPanel';
-import { MapTrifold, Plus, ChartBar, WarningCircle } from '@phosphor-icons/react';
-import { checkBackendHealth } from '../../lib/api';
+import { MapTrifold, Plus, ChartBar, WarningCircle, ArrowsClockwise } from '@phosphor-icons/react';
+import { checkBackendHealth, fetchHeatmap } from '../../lib/api';
 import type { IncidentPin } from '../../types/index';
 
 // Leaflet map needs to be dynamically imported with ssr: false
@@ -28,12 +28,28 @@ export default function DashboardPage() {
     const [panelData, setPanelData] = useState<any>(null);
     const [isPanelOpen, setIsPanelOpen] = useState(false);
     const [isBackendActive, setIsBackendActive] = useState<boolean>(true);
+    const [isDataLoaded, setIsDataLoaded] = useState<boolean>(false);
+    const [initialHeatmap, setInitialHeatmap] = useState<Array<[number, number, number]>>([]);
+
+    const isDataLoadedRef = useRef(false);
 
     useEffect(() => {
         let isMounted = true;
         const pollHealth = async () => {
             const isHealthy = await checkBackendHealth();
-            if (isMounted) setIsBackendActive(isHealthy);
+            if (isHealthy) {
+                if (!isDataLoadedRef.current) {
+                    const heatRes = await fetchHeatmap();
+                    if (heatRes !== null && isMounted) {
+                        setInitialHeatmap(heatRes.map((h: any) => [h.lat, h.lng, h.weight]));
+                        isDataLoadedRef.current = true;
+                        setIsDataLoaded(true);
+                    }
+                }
+                if (isMounted) setIsBackendActive(true);
+            } else {
+                if (isMounted) setIsBackendActive(false);
+            }
         };
         pollHealth();
         const interval = setInterval(pollHealth, 3000);
@@ -62,6 +78,39 @@ export default function DashboardPage() {
     const closePanel = () => {
         setIsPanelOpen(false);
     };
+
+    if (!isBackendActive || !isDataLoaded) {
+        return (
+            <div className="flex flex-col h-[calc(100vh-80px)] w-full overflow-hidden bg-neo-bg relative items-center justify-center">
+                <div className="absolute inset-0 z-[3000] bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+                    <div className="bg-neo-bg border-4 border-neo-border p-8 shadow-[8px_8px_0_0_rgba(22,51,0,1)] max-w-md w-full flex flex-col items-center text-center">
+                        {(!isBackendActive) ? (
+                            <>
+                                <WarningCircle size={64} className="text-red-500 mb-4" weight="bold" />
+                                <h2 className="text-2xl font-black uppercase tracking-tighter mb-2">Backend Offline</h2>
+                                <p className="font-mono text-sm text-gray-600 mb-6">
+                                    Cannot connect to the server. Waiting for it to come online...
+                                </p>
+                            </>
+                        ) : (
+                            <>
+                                <div className="animate-spin mb-4">
+                                    <ArrowsClockwise size={64} className="text-neo-primary" weight="bold" />
+                                </div>
+                                <h2 className="text-2xl font-black uppercase tracking-tighter mb-2">Loading City Data</h2>
+                                <p className="font-mono text-sm text-gray-600 mb-6">
+                                    Backend is online. Retrieving ML models and map datasets...
+                                </p>
+                            </>
+                        )}
+                        <div className="w-full h-3 border-2 border-neo-border bg-white overflow-hidden p-0.5">
+                            <div className="h-full bg-primary w-full"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="flex flex-col h-[calc(100vh-80px)] w-full overflow-hidden bg-neo-bg relative">
@@ -98,20 +147,23 @@ export default function DashboardPage() {
             {/* Main Content Area */}
             <div className="flex-1 relative flex overflow-hidden">
                 <div className="flex-1 bg-grid relative flex flex-col overflow-hidden">
-                    {activeView === 'map' && (
+                    <div className={`absolute inset-0 z-10 ${activeView === 'map' ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
                         <MapView
                             onOpenPanel={openPanelWithData}
                             incidentPins={incidentPins}
                             onNewIncident={() => setActiveView('submit')}
+                            initialHeatmap={initialHeatmap}
                         />
-                    )}
-                    {activeView === 'submit' && (
+                    </div>
+                    <div className={`absolute inset-0 z-10 ${activeView === 'submit' ? 'block' : 'hidden'}`}>
                         <SubmitIncidentView
                             onOpenPanel={openPanelWithData}
                             onPinDropped={addIncidentPin}
                         />
-                    )}
-                    {activeView === 'analytics' && <AnalyticsView />}
+                    </div>
+                    <div className={`absolute inset-0 z-10 ${activeView === 'analytics' ? 'block' : 'hidden'}`}>
+                        <AnalyticsView />
+                    </div>
                 </div>
 
                 {/* Incident Panel Drawer */}
@@ -131,22 +183,6 @@ export default function DashboardPage() {
                         className="absolute inset-0 bg-black/50 z-40 md:hidden backdrop-blur-sm"
                         onClick={closePanel}
                     />
-                )}
-
-                {/* Backend Connection Modal */}
-                {!isBackendActive && (
-                    <div className="absolute inset-0 z-[3000] bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-                        <div className="bg-neo-bg border-4 border-neo-border p-8 shadow-[8px_8px_0_0_rgba(22,51,0,1)] max-w-md w-full flex flex-col items-center text-center">
-                            <WarningCircle size={64} className="text-red-500 mb-4" weight="bold" />
-                            <h2 className="text-2xl font-black uppercase tracking-tighter mb-2">Backend Offline</h2>
-                            <p className="font-mono text-sm text-gray-600 mb-6">
-                                Cannot connect to the server. Waiting for it to come online...
-                            </p>
-                            <div className="w-full h-3 border-2 border-neo-border bg-white overflow-hidden p-0.5">
-                                <div className="h-full bg-primary w-full"></div>
-                            </div>
-                        </div>
-                    </div>
                 )}
             </div>
         </div>

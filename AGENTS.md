@@ -208,7 +208,7 @@ Isolation Forest internally tries to isolate this point by making random splits 
 
 We convert this to a human-readable alert level: scores above 0 = Normal, 0 to -0.1 = Watch, below -0.1 = Critical. These thresholds are tuned by inspecting the score distribution across the dataset.
 
-The agent runs every 0.09 seconds during the demo by streaming new incidents sequentially from the dataset into a per-zone sliding-window deque (incidents older than 24 hours of simulated time are evicted), computing the three statistics from the current window's state, feeding them to the trained model, and returning the scores. Once the dataset is exhausted, the replay loop stops and freezes at the final state. The frontend polls `/anomaly` every 10 seconds and updates the zone cards.
+The agent runs a background replay loop that defaults to a paused standby state on startup. When the user clicks Start, the loop ticks every 0.07 seconds by streaming new incidents sequentially from the dataset into a per-zone sliding-window deque (incidents older than 24 hours of simulated time are evicted), computing the three statistics from the current window's state, feeding them to the trained model, and returning the scores. The user can Pause and Start the loop at any time. Once the dataset is exhausted, the replay loop stops and freezes at the final state. The frontend polls `/anomaly` every 10 seconds and updates the zone cards.
 
 Output per zone: `{ zone, alert_level, incident_count, high_priority_ratio, mean_duration, anomaly_score }`.
 
@@ -251,7 +251,9 @@ All endpoints are FastAPI. The dataset CSV is loaded into a pandas DataFrame at 
 | POST /geocode-zone | POST | Accepts `{zone: string}`. Uses Groq AI to parse the area name, then queries OpenStreetMap Nominatim for exact lat/lng coordinates. Returns high-confidence coords or a list of ambiguous candidate locations. |
 | POST /predict | POST | Accepts the feature fields (including lat/lng) from the form or an anomaly zone. Runs Agent 2. Returns `{priority, confidence, estimated_duration_minutes, estimated_resolution_time}`. |
 | GET /action-plan | GET (SSE) | Accepts query params matching the full incident + prediction context. Calls Agent 4 and streams the response as Server-Sent Events. |
-| GET /anomaly | GET | Returns the current anomaly scores for all zones, updated every 0.066 seconds by the background replay loop. |
+| GET /anomaly | GET | Returns the current anomaly scores for all zones, along with progress and `is_paused` status. |
+| POST /anomaly/start | POST | Starts or resumes the anomaly replay loop. If the dataset was exhausted, it automatically resets to the beginning. |
+| POST /anomaly/pause | POST | Pauses the anomaly replay loop in place without losing progress. |
 | POST /anomaly/replay | POST | Resets the anomaly replay loop to the beginning of the dataset, clearing accumulators and starting the stream from index 0. |
 | GET /analytics | GET | Returns all four analytics datasets in a single response (the frontend currently renders three of them): the 7x24 incident volume grid, the top 15 junctions by count, the corridor-grouped median durations, and the planned vs unplanned monthly volume series. Computed once at startup from the in-memory DataFrame. |
 | POST /feedback | POST | Accepts `{incident_context: object, action_plan: string, rating: "up" or "down"}`. Appends the entry as a JSON line to a local `feedback.jsonl` file. Returns `{status: "ok"}`. |

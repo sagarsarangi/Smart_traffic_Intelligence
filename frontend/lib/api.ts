@@ -24,7 +24,7 @@ export async function fetchHeatmap() {
         return await response.json();
     } catch (error) {
         handleApiError(error);
-        return [];
+        return null;
     }
 }
 
@@ -45,7 +45,7 @@ export async function fetchIncidents(params: { zone?: string, priority?: string,
     }
 }
 
-export async function fetchAnomalyScores(): Promise<{ zones: any[]; progress: { done: number; total: number; finished: boolean } }> {
+export async function fetchAnomalyScores(): Promise<{ zones: any[]; progress: { done: number; total: number; finished: boolean; is_paused?: boolean } }> {
     try {
         const response = await fetch(`${API_BASE_URL}/anomaly`);
         if (!response.ok) throw new Error('Failed to fetch anomaly scores');
@@ -58,7 +58,7 @@ export async function fetchAnomalyScores(): Promise<{ zones: any[]; progress: { 
         return data;
     } catch (error) {
         handleApiError(error);
-        return { zones: [], progress: { done: 0, total: 0, finished: false } };
+        return { zones: [], progress: { done: 0, total: 0, finished: false, is_paused: true } };
     }
 }
 
@@ -118,7 +118,7 @@ export async function submitFeedback(feedback: { incident_context: any, action_p
     }
 }
 
-export async function resetAnomalyReplay(): Promise<{ zones: any[]; progress: { done: number; total: number; finished: boolean } } | null> {
+export async function resetAnomalyReplay(): Promise<{ zones: any[]; progress: { done: number; total: number; finished: boolean; is_paused?: boolean } } | null> {
     try {
         const response = await fetch(`${API_BASE_URL}/anomaly/replay`, {
             method: 'POST'
@@ -129,6 +129,28 @@ export async function resetAnomalyReplay(): Promise<{ zones: any[]; progress: { 
             return { zones: data, progress: { done: 0, total: 0, finished: false } };
         }
         return data;
+    } catch (error) {
+        handleApiError(error);
+        return null;
+    }
+}
+
+export async function startAnomalyReplay(): Promise<{ zones: any[]; progress: { done: number; total: number; finished: boolean; is_paused?: boolean } } | null> {
+    try {
+        const response = await fetch(`${API_BASE_URL}/anomaly/start`, { method: 'POST' });
+        if (!response.ok) throw new Error('Failed to start anomaly replay');
+        return await response.json();
+    } catch (error) {
+        handleApiError(error);
+        return null;
+    }
+}
+
+export async function pauseAnomalyReplay(): Promise<{ zones: any[]; progress: { done: number; total: number; finished: boolean; is_paused?: boolean } } | null> {
+    try {
+        const response = await fetch(`${API_BASE_URL}/anomaly/pause`, { method: 'POST' });
+        if (!response.ok) throw new Error('Failed to pause anomaly replay');
+        return await response.json();
     } catch (error) {
         handleApiError(error);
         return null;

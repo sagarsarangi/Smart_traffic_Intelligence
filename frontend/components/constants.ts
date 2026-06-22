@@ -76,7 +76,7 @@ export const DATA: SystemData = {
         "Baseline learned from all 8,173 records across zone × day_type × time_bucket combinations",
         "Null zones (57% of records) are grouped by police_station to preserve full dataset coverage",
         "Score thresholds: >0 = Normal, 0 to -0.1 = Watch, <-0.1 = Critical",
-        "Zone polygon colors on map update in real-time matching alert levels (green/amber/red)"
+        "Zone alert status updates in real-time matching alert levels (green/amber/red)"
       ],
       color: "secondary"
     },
@@ -179,7 +179,7 @@ export const DATA: SystemData = {
       id: "02",
       title: "Real-time Anomaly Detection",
       description: "Isolation Forest monitors every zone continuously, comparing current conditions against historical baselines to flag anomalies before they become crises.",
-      features: ["Per-Zone Monitoring", "3D Feature Scoring", "Watch / Critical Alerts", "Map Polygon Integration"]
+      features: ["Per-Zone Monitoring", "3D Feature Scoring", "Watch / Critical Alerts", "Zone-Level Aggregation"]
     },
     {
       id: "03",

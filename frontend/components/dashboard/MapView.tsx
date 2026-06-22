@@ -12,8 +12,10 @@ import {
     fetchAnomalyScores,
     predictIncident,
     resetAnomalyReplay,
+    startAnomalyReplay,
+    pauseAnomalyReplay,
 } from '../../lib/api';
-import { WarningCircle, ArrowRight, ListDashes, X, ArrowsClockwise, Play, Stop, Robot, Plus } from '@phosphor-icons/react';
+import { WarningCircle, ArrowRight, ListDashes, X, ArrowsClockwise, Play, Stop, Robot, Plus, Pause } from '@phosphor-icons/react';
 import type { IncidentPin } from '../../types/index';
 
 // ---------------------------------------------------------------------------
@@ -219,18 +221,24 @@ interface MapViewProps {
     incidentPins?: IncidentPin[];
     /** Callback to switch to submit view. */
     onNewIncident?: () => void;
+    /** Initial heatmap data loaded by the parent component. */
+    initialHeatmap?: Array<[number, number, number]>;
 }
 
 // ---------------------------------------------------------------------------
 // MapView
 // ---------------------------------------------------------------------------
-export default function MapView({ onOpenPanel, incidentPins = [], onNewIncident }: MapViewProps) {
+export default function MapView({ onOpenPanel, incidentPins = [], onNewIncident, initialHeatmap = [] }: MapViewProps) {
     // ── Heatmap ─────────────────────────────────────────────────────────────
-    // staticHeatmap: loaded once from /heatmap (full, pre-computed dataset)
+    // staticHeatmap: loaded from parent initially (full, pre-computed dataset)
     // replayHeatmap: polled from /heatmap/replay every 5 s when replay is active
-    const [staticHeatmap, setStaticHeatmap] = useState<Array<[number, number, number]>>([]);
+    const [staticHeatmap, setStaticHeatmap] = useState<Array<[number, number, number]>>(initialHeatmap);
     const [replayHeatmap, setReplayHeatmap] = useState<Array<[number, number, number]>>([]);
     const [replayStatus, setReplayStatus] = useState<ReplayStatus>('idle');
+
+    useEffect(() => {
+        setStaticHeatmap(initialHeatmap);
+    }, [initialHeatmap]);
 
     // The heatmap displayed on the map is whichever mode is active
     const activeHeatmap = replayStatus !== 'idle' ? replayHeatmap : staticHeatmap;
@@ -240,8 +248,8 @@ export default function MapView({ onOpenPanel, incidentPins = [], onNewIncident 
 
     // ── Anomaly sidebar ─────────────────────────────────────────────────────
     const [anomalies, setAnomalies] = useState<any[]>([]);
-    const [anomalyProgress, setAnomalyProgress] = useState<{ done: number; total: number; finished: boolean }>({
-        done: 0, total: 0, finished: false,
+    const [anomalyProgress, setAnomalyProgress] = useState<{ done: number; total: number; finished: boolean; is_paused?: boolean }>({
+        done: 0, total: 0, finished: false, is_paused: true,
     });
     const [isAnomalyModalOpen, setIsAnomalyModalOpen] = useState(false);
     // Zone data awaiting model selection before generating a plan (null = no picker shown)
@@ -265,24 +273,6 @@ export default function MapView({ onOpenPanel, incidentPins = [], onNewIncident 
     const lastPointCountRef = useRef<number>(0);
     const stablePointCountRef = useRef<number>(0); // ticks with unchanged count
 
-    // ── Initial load: static heatmap + incident markers ──────────────────────
-    useEffect(() => {
-        const load = async () => {
-            setIsLoading(true);
-            try {
-                const heatRes = await fetchHeatmap();
-                if (heatRes && Array.isArray(heatRes)) {
-                    setStaticHeatmap(heatRes.map((h: any) => [h.lat, h.lng, h.weight]));
-                }
-            } catch (err) {
-                console.error('Error loading initial map data:', err);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-        load();
-    }, []);
-
     // ── Anomaly polling — 5 s interval, reset by anomalyPollKey ─────────────
     useEffect(() => {
         const poll = async () => {
@@ -290,7 +280,7 @@ export default function MapView({ onOpenPanel, incidentPins = [], onNewIncident 
                 const res = await fetchAnomalyScores();
                 if (res) {
                     setAnomalies(sortAnomalies(res.zones ?? []));
-                    setAnomalyProgress(res.progress ?? { done: 0, total: 0, finished: false });
+                    setAnomalyProgress(res.progress ?? { done: 0, total: 0, finished: false, is_paused: true });
                 }
             } catch (error) {
                 console.error('Failed to fetch anomaly scores:', error);
@@ -503,32 +493,53 @@ export default function MapView({ onOpenPanel, incidentPins = [], onNewIncident 
                                     <span className={`px-2 py-0.5 text-[10px] font-mono font-bold border-2 border-neo-border uppercase ${
                                         anomalyProgress.finished
                                             ? 'bg-neo-primary'
-                                            : 'bg-amber-300'
+                                            : anomalyProgress.is_paused
+                                                ? 'bg-gray-300'
+                                                : 'bg-amber-300'
                                     }`}>
-                                        {anomalyProgress.finished ? '✓ Done' : '● Live'}
+                                        {anomalyProgress.finished ? '✓ Done' : anomalyProgress.is_paused ? '⏸ Paused' : '● Live'}
                                         {' · '}{anomalyProgress.done.toLocaleString()}
                                         {' / '}{anomalyProgress.total.toLocaleString()}
                                     </span>
                                 )}
-                                <button
-                                    onClick={async () => {
-                                        try {
-                                            const resetState = await resetAnomalyReplay();
-                                            if (resetState) {
-                                                setAnomalies(sortAnomalies(resetState.zones ?? []));
-                                                setAnomalyProgress(resetState.progress ?? { done: 0, total: 0, finished: false });
-                                                setAnomalyPollKey(k => k + 1);
+                                {anomalyProgress.is_paused ? (
+                                    <button
+                                        onClick={async () => {
+                                            try {
+                                                const res = await startAnomalyReplay();
+                                                if (res) {
+                                                    setAnomalies(sortAnomalies(res.zones ?? []));
+                                                    setAnomalyProgress(res.progress ?? { done: 0, total: 0, finished: false, is_paused: false });
+                                                }
+                                            } catch (error) {
+                                                console.error('Failed to start anomaly replay:', error);
                                             }
-                                        } catch (error) {
-                                            console.error('Failed to reset anomaly replay:', error);
-                                        }
-                                    }}
-                                    className="px-3 py-1 text-sm font-bold border-2 border-neo-border bg-white hover:bg-neo-secondary transition-colors flex items-center gap-2 uppercase"
-                                    title="Restart the anomaly simulation replay from the beginning"
-                                >
-                                    <ArrowsClockwise size={16} weight="bold" />
-                                    Replay
-                                </button>
+                                        }}
+                                        className="px-3 py-1 text-sm font-bold border-2 border-neo-border bg-white hover:bg-neo-primary transition-colors flex items-center gap-2 uppercase"
+                                        title="Start or Resume Anomaly Replay"
+                                    >
+                                        <Play size={16} weight="bold" />
+                                        Start
+                                    </button>
+                                ) : (
+                                    <button
+                                        onClick={async () => {
+                                            try {
+                                                const res = await pauseAnomalyReplay();
+                                                if (res) {
+                                                    setAnomalyProgress(res.progress ?? { done: 0, total: 0, finished: false, is_paused: true });
+                                                }
+                                            } catch (error) {
+                                                console.error('Failed to pause anomaly replay:', error);
+                                            }
+                                        }}
+                                        className="px-3 py-1 text-sm font-bold border-2 border-neo-border bg-amber-300 hover:bg-amber-400 transition-colors flex items-center gap-2 uppercase"
+                                        title="Pause Anomaly Replay"
+                                    >
+                                        <Pause size={16} weight="bold" />
+                                        Pause
+                                    </button>
+                                )}
                                 <button
                                     onClick={() => setIsAnomalyModalOpen(false)}
                                     className="p-1 border-2 border-neo-border bg-white hover:bg-neo-secondary transition-colors"

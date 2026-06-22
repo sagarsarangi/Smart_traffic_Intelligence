@@ -53,6 +53,10 @@ export default function DashboardPage() {
         };
         pollHealth();
         const interval = setInterval(pollHealth, 3000);
+        
+        // IMPORTANT CLEANUP: This return function runs when the user leaves the dashboard 
+        // or closes the tab. It stops the 3-second polling. Without this, the backend would 
+        // stay awake forever. With this, the backend safely goes to sleep after 15 mins of inactivity.
         return () => {
             isMounted = false;
             clearInterval(interval);

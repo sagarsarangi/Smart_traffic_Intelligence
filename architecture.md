@@ -83,7 +83,7 @@ All endpoints are served by FastAPI. The dataset DataFrame and all trained model
 
 ### `GET /ping`
 
-**Purpose:** Quick liveness probe to verify the server is running.
+**Purpose:** Quick liveness probe to verify the server is running. It is explicitly used by the frontend as a silent background fetch on the initial landing page load to preemptively wake the backend from Render's free-tier cold sleep before the user reaches the dashboard.
 
 **Input:** None.
 
@@ -661,6 +661,14 @@ User clicks "Generate Plan" on a zone card:
 ---
 
 ## 6. Frontend Views and Component Wiring
+
+### Dashboard Lifecycle & Cold Start Mitigation
+
+**Global Wake-up Ping:** The root layout (`ClientLayout.tsx`) runs a silent, fire-and-forget background `fetch` to `GET /ping` immediately when the site loads. This preemptively wakes the backend from Render's free-tier sleep while the user is still on the landing page, masking the cold start delay.
+
+**Dashboard Gatekeeping:** The main dashboard view (`app/dashboard/page.tsx`) uses a strict early-return loading state. It continuously polls `GET /ping` every 3 seconds and refuses to render any dashboard components (Map, Sidebar, etc.) until `isBackendActive` and `isDataLoaded` are explicitly true. This prevents partial renders or silent failures if the user navigates to the dashboard before the backend has finished its startup sequence.
+
+---
 
 ### View 1 — Map (default on login)
 

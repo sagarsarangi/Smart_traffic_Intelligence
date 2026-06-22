@@ -80,7 +80,7 @@ export default function ZoneClarificationModal({
                                 Location Not Precise Enough
                             </h2>
                             <p className="text-sm font-mono mt-1 text-neo-text/80">
-                                We couldn't pinpoint your zone precisely. Select a suggestion or describe it more accurately.
+                                We couldn&apos;t pinpoint your zone precisely. Select a suggestion or describe it more accurately.
                             </p>
                         </div>
                     </div>

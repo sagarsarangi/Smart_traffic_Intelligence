@@ -164,7 +164,7 @@ export default function IncidentPanel({ isOpen, onClose, data }: IncidentPanelPr
                             <Info size={20} />
                             Parsed from description
                         </h3>
-                        <p className="text-sm italic mb-2">"{data.nlpResult.normalized_summary}"</p>
+                        <p className="text-sm italic mb-2">&quot;{data.nlpResult.normalized_summary}&quot;</p>
                         <div className="flex gap-2 text-xs font-mono">
                             <span className="bg-white border-2 border-neo-border px-2 py-1">Severity: {data.nlpResult.severity}</span>
                             <span className="bg-white border-2 border-neo-border px-2 py-1">Action: {data.nlpResult.action_needed ? 'Yes' : 'No'}</span>

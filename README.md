@@ -21,7 +21,7 @@
 ![NumPy](https://img.shields.io/badge/numpy-%23013243.svg?style=for-the-badge&logo=numpy&logoColor=white)
 
 **Live Link**: [https://sti-ai.vercel.app/](https://sti-ai.vercel.app/)  
-**Backend API**: [https://sti-ai-6ui8.onrender.com/](https://sti-ai-6ui8.onrender.com/)
+**Backend API**: [https://sti-ai-6ui8.onrender.com/](https://sti-ai-6ui8.onrender.com/ping)
 
 An AI-powered traffic forecasting and decision-support platform built on a dataset of **8,173 real Bengaluru traffic incidents**. It helps authorities predict congestion caused by planned and unplanned events, detect anomalies before they escalate, and auto-generate response plans using Generative AI. By learning the actual congestion behaviors of Bengaluru's unique corridors, the system transitions city operations from reactive to proactive.
 

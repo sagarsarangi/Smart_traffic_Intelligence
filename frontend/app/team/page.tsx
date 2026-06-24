@@ -58,129 +58,184 @@ export default function TeamPage() {
 
 
     return (
-        <div ref={containerRef} className="flex-1 w-full bg-grid pb-24 overflow-hidden">
-            {/* Header */}
-            <section className="max-w-7xl mx-auto px-4 md:px-6 pt-6 pb-8 fade-in-up text-center">
-                <div className="inline-flex items-center gap-4 mb-4">
-                    <div className="h-14 w-14 bg-primary border-4 border-neo-border flex items-center justify-center text-neo-text shadow-[6px_6px_0px_0px_#163300]">
-                        <Users weight="bold" className="w-8 h-8" />
-                    </div>
-                </div>
-                <h1 className="text-4xl md:text-6xl font-black uppercase tracking-tight leading-none mb-4">
-                    The Team
-                </h1>
-                <p className="text-lg md:text-xl font-mono text-gray-700 max-w-3xl mx-auto border-b-4 border-primary pb-4 inline-block">
-                    Architects of the Gridlock Engine.
-                </p>
-            </section>
-
-            <div className="max-w-7xl mx-auto px-4 md:px-6 flex flex-col gap-12">
-                
-                {/* Team Roster - Small Blocks */}
-                <div>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                        
-                        {/* Member 1: Siddhi Biyani */}
-                        <div className="team-card border-4 border-neo-border bg-neo-text text-white p-5 shadow-[6px_6px_0px_0px_#9FE870] group hover:-translate-y-2 hover:shadow-[10px_10px_0px_0px_#9FE870] transition-all relative overflow-hidden flex flex-col items-center text-center h-full">
-                            <div className="absolute inset-0 border-2 border-primary opacity-0 group-hover:opacity-100 pointer-events-none"></div>
-                            <div className="absolute -top-10 -right-10 w-32 h-32 bg-primary/20 rounded-full blur-xl"></div>
-                            <div className="w-16 h-16 bg-black border-2 border-primary mb-3 flex items-center justify-center relative z-10 rounded-full group-hover:scale-110 transition-transform">
-                                <TerminalWindow weight="bold" className="w-8 h-8 text-primary" />
-                            </div>
-                            <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full">
-                                <h3 className="text-xl font-black uppercase tracking-tight text-primary mb-1">{DATA.team[0]?.name || "Siddhi Biyani"}</h3>
-                            </div>
-                        </div>
-
-                        {/* Member 2: Yash Pitroda */}
-                        <div className="team-card border-4 border-neo-border bg-white p-5 shadow-[6px_6px_0px_0px_#163300] group hover:-translate-y-2 hover:shadow-[10px_10px_0px_0px_#163300] transition-all relative overflow-hidden flex flex-col items-center text-center h-full">
-                            <div className="absolute inset-0 pattern-grid-lg opacity-5 pointer-events-none"></div>
-                            <div className="w-16 h-16 bg-accent border-3 border-neo-border mb-3 flex items-center justify-center relative z-10 overflow-hidden rounded-full group-hover:rotate-12 transition-transform">
-                                <TreeStructure weight="bold" className="w-8 h-8 text-neo-text" />
-                            </div>
-                            <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full">
-                                <h3 className="text-xl font-black uppercase tracking-tight text-neo-text mb-1">{DATA.team[1]?.name || "Yash Pitroda"}</h3>
-                            </div>
-                        </div>
-
-                        {/* Member 3: Amar Kumar */}
-                        <div className="team-card border-4 border-neo-border bg-black text-white p-5 shadow-[6px_6px_0px_0px_#a0e1e1] group hover:-translate-y-2 hover:shadow-[10px_10px_0px_0px_#a0e1e1] transition-all relative overflow-hidden flex flex-col items-center text-center h-full">
-                            <div className="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-accent to-transparent opacity-50"></div>
-                            <div className="p-4 border-2 border-accent bg-accent/10 rounded-full mb-6 relative">
-                                <Brain weight="fill" className="w-8 h-8 text-accent drop-shadow-[0_0_8px_rgba(160,225,225,0.8)]" />
-                            </div>
-                            <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full">
-                                <h3 className="text-xl font-black uppercase tracking-tight text-accent mb-1">{DATA.team[2]?.name || "Amar Kumar"}</h3>
-                            </div>
-                        </div>
-
-                        {/* Member 4: Sagar Sarangi */}
-                        <div className="team-card border-4 border-neo-border bg-primary p-5 shadow-[6px_6px_0px_0px_#163300] group hover:-translate-y-2 hover:shadow-[10px_10px_0px_0px_#163300] transition-all relative overflow-hidden flex flex-col items-center text-center h-full">
-                            <div className="absolute top-0 right-0 w-full h-full bg-gradient-to-bl from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
-                            <div className="absolute -left-8 top-1/2 w-16 h-16 bg-white/30 rounded-full blur-md"></div>
-                            <div className="w-16 h-16 bg-white border-4 border-neo-border mb-3 flex items-center justify-center relative z-10 rounded-full group-hover:-translate-y-2 transition-transform">
-                                <Stack weight="bold" className="w-8 h-8 text-neo-text" />
-                            </div>
-                            <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full">
-                                <h3 className="text-xl font-black uppercase tracking-tight text-neo-text mb-1">{DATA.team[3]?.name || "Sagar Sarangi"}</h3>
-                            </div>
-                        </div>
-
-                    </div>
-                </div>
-
-                {/* Project Info & Resources */}
-                <div className="grid md:grid-cols-2 gap-8 fade-in-up">
-                    
-                    <div className="border-4 border-neo-border bg-neo-text text-white p-8 shadow-[8px_8px_0px_0px_#9FE870] hover:-translate-y-1 hover:shadow-[10px_10px_0px_0px_#9FE870] transition-all relative overflow-hidden">
-                        <div className="absolute -right-4 -top-4 w-24 h-24 bg-primary/10 rounded-full blur-xl"></div>
-                        <h3 className="text-2xl font-black uppercase mb-6 text-primary flex items-center gap-2">
-                            <ArrowRight weight="bold" /> Project Scope
-                        </h3>
-                        <p className="font-mono text-sm text-gray-300 leading-relaxed mb-8">
-                            Smart Traffic Intelligence was developed to solve real-world urban congestion issues by utilizing agentic AI workflows on historical traffic datasets.
-                        </p>
-                        <div className="space-y-4 font-mono text-xs">
-                            <div className="flex justify-between border-b border-gray-700 pb-2 group hover:border-primary transition-colors">
-                                <span className="text-gray-400">Dataset</span>
-                                <span className="font-bold text-white group-hover:text-primary transition-colors">Bengaluru (8.1k)</span>
-                            </div>
-                            <div className="flex justify-between border-b border-gray-700 pb-2 group hover:border-primary transition-colors">
-                                <span className="text-gray-400">Core Tech</span>
-                                <span className="font-bold text-white group-hover:text-primary transition-colors">FastAPI + Next.js</span>
-                            </div>
-                            <div className="flex justify-between border-b border-gray-700 pb-2 group hover:border-primary transition-colors">
-                                <span className="text-gray-400">AI Models</span>
-                                <span className="font-bold text-white group-hover:text-primary transition-colors">XGBoost, I-Forest</span>
-                            </div>
-                            <div className="flex justify-between pb-2 group">
-                                <span className="text-gray-400">LLM Engine</span>
-                                <span className="font-bold text-primary group-hover:text-white transition-colors">Groq</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="border-4 border-neo-border bg-secondary p-8 shadow-neo hover:-translate-y-1 hover:shadow-[8px_8px_0px_0px_#163300] transition-all relative overflow-hidden">
-                        <div className="absolute inset-0 pattern-diagonal opacity-10 pointer-events-none"></div>
-                        <h3 className="text-2xl font-black uppercase mb-6 relative z-10">Resources</h3>
-                        <div className="flex flex-col gap-4 relative z-10">
-                            <a href="https://github.com/SiddhiB-05/Smart_traffic_Intelligence" target="_blank" rel="noopener noreferrer" className="flex items-center justify-between border-3 border-neo-border bg-white p-4 hover:bg-primary hover:-translate-y-1 transition-all group shadow-sm hover:shadow-neo-sm">
-                                <span className="flex items-center gap-3 font-mono text-sm font-bold uppercase"><GithubLogo weight="bold" className="w-6 h-6"/> GitHub Repo</span>
-                                <ArrowUpRight weight="bold" className="w-5 h-5 group-hover:rotate-45 transition-transform" />
-                            </a>
-                            <a href="https://github.com/SiddhiB-05/Smart_traffic_Intelligence/blob/main/README.md" target="_blank" rel="noopener noreferrer" className="flex items-center justify-between border-3 border-neo-border bg-white p-4 hover:bg-primary hover:-translate-y-1 transition-all group shadow-sm hover:shadow-neo-sm">
-                                <span className="flex items-center gap-3 font-mono text-sm font-bold uppercase"><BookOpen weight="bold" className="w-6 h-6"/> Documentation</span>
-                                <ArrowUpRight weight="bold" className="w-5 h-5 group-hover:rotate-45 transition-transform" />
-                            </a>
-                            <Link href="/dashboard" className="flex items-center justify-between border-3 border-neo-border bg-neo-text text-primary p-4 hover:bg-black hover:-translate-y-1 transition-all group shadow-sm hover:shadow-neo-sm">
-                                <span className="flex items-center gap-3 font-mono text-sm font-bold uppercase"><Code weight="bold" className="w-6 h-6"/> Live Dashboard</span>
-                                <ArrowRight weight="bold" className="w-5 h-5 group-hover:translate-x-2 transition-transform" />
-                            </Link>
-                        </div>
-                    </div>
-
-                </div>
+      <div
+        ref={containerRef}
+        className="flex-1 w-full bg-grid pb-24 overflow-hidden"
+      >
+        {/* Header */}
+        <section className="max-w-7xl mx-auto px-4 md:px-6 pt-6 pb-8 fade-in-up text-center">
+          <div className="inline-flex items-center gap-4 mb-4">
+            <div className="h-14 w-14 bg-primary border-4 border-neo-border flex items-center justify-center text-neo-text shadow-[6px_6px_0px_0px_#163300]">
+              <Users weight="bold" className="w-8 h-8" />
             </div>
+          </div>
+          <h1 className="text-4xl md:text-6xl font-black uppercase tracking-tight leading-none mb-4">
+            The Team
+          </h1>
+          <p className="text-lg md:text-xl font-mono text-gray-700 max-w-3xl mx-auto border-b-4 border-primary pb-4 inline-block">
+            Architects of the Gridlock Engine.
+          </p>
+        </section>
+
+        <div className="max-w-7xl mx-auto px-4 md:px-6 flex flex-col gap-12">
+          {/* Team Roster - Small Blocks */}
+          <div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+              {/* Member 1: Siddhi Biyani */}
+              <div className="team-card border-4 border-neo-border bg-neo-text text-white p-5 shadow-[6px_6px_0px_0px_#9FE870] group hover:-translate-y-2 hover:shadow-[10px_10px_0px_0px_#9FE870] transition-all relative overflow-hidden flex flex-col items-center text-center h-full">
+                <div className="absolute inset-0 border-2 border-primary opacity-0 group-hover:opacity-100 pointer-events-none"></div>
+                <div className="absolute -top-10 -right-10 w-32 h-32 bg-primary/20 rounded-full blur-xl"></div>
+                <div className="w-16 h-16 bg-black border-2 border-primary mb-3 flex items-center justify-center relative z-10 rounded-full group-hover:scale-110 transition-transform">
+                  <TerminalWindow
+                    weight="bold"
+                    className="w-8 h-8 text-primary"
+                  />
+                </div>
+                <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full">
+                  <h3 className="text-xl font-black uppercase tracking-tight text-primary mb-1">
+                    {DATA.team[0]?.name || "Siddhi Biyani"}
+                  </h3>
+                </div>
+              </div>
+
+              {/* Member 2: Yash Pitroda */}
+              <div className="team-card border-4 border-neo-border bg-white p-5 shadow-[6px_6px_0px_0px_#163300] group hover:-translate-y-2 hover:shadow-[10px_10px_0px_0px_#163300] transition-all relative overflow-hidden flex flex-col items-center text-center h-full">
+                <div className="absolute inset-0 pattern-grid-lg opacity-5 pointer-events-none"></div>
+                <div className="w-16 h-16 bg-accent border-3 border-neo-border mb-3 flex items-center justify-center relative z-10 overflow-hidden rounded-full group-hover:rotate-12 transition-transform">
+                  <TreeStructure
+                    weight="bold"
+                    className="w-8 h-8 text-neo-text"
+                  />
+                </div>
+                <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full">
+                  <h3 className="text-xl font-black uppercase tracking-tight text-neo-text mb-1">
+                    {DATA.team[1]?.name || "Yash Pitroda"}
+                  </h3>
+                </div>
+              </div>
+
+              {/* Member 3: Amar Kumar */}
+              <div className="team-card border-4 border-neo-border bg-black text-white p-5 shadow-[6px_6px_0px_0px_#a0e1e1] group hover:-translate-y-2 hover:shadow-[10px_10px_0px_0px_#a0e1e1] transition-all relative overflow-hidden flex flex-col items-center text-center h-full">
+                <div className="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-accent to-transparent opacity-50"></div>
+                <div className="p-4 border-2 border-accent bg-accent/10 rounded-full mb-6 relative">
+                  <Brain
+                    weight="fill"
+                    className="w-8 h-8 text-accent drop-shadow-[0_0_8px_rgba(160,225,225,0.8)]"
+                  />
+                </div>
+                <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full">
+                  <h3 className="text-xl font-black uppercase tracking-tight text-accent mb-1">
+                    {DATA.team[2]?.name || "Amar Kumar"}
+                  </h3>
+                </div>
+              </div>
+
+              {/* Member 4: Sagar Sarangi */}
+              <div className="team-card border-4 border-neo-border bg-primary p-5 shadow-[6px_6px_0px_0px_#163300] group hover:-translate-y-2 hover:shadow-[10px_10px_0px_0px_#163300] transition-all relative overflow-hidden flex flex-col items-center text-center h-full">
+                <div className="absolute top-0 right-0 w-full h-full bg-gradient-to-bl from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+                <div className="absolute -left-8 top-1/2 w-16 h-16 bg-white/30 rounded-full blur-md"></div>
+                <div className="w-16 h-16 bg-white border-4 border-neo-border mb-3 flex items-center justify-center relative z-10 rounded-full group-hover:-translate-y-2 transition-transform">
+                  <Stack weight="bold" className="w-8 h-8 text-neo-text" />
+                </div>
+                <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full">
+                  <h3 className="text-xl font-black uppercase tracking-tight text-neo-text mb-1">
+                    {DATA.team[3]?.name || "Sagar Sarangi"}
+                  </h3>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Project Info & Resources */}
+          <div className="grid md:grid-cols-2 gap-8 fade-in-up">
+            <div className="border-4 border-neo-border bg-neo-text text-white p-8 shadow-[8px_8px_0px_0px_#9FE870] hover:-translate-y-1 hover:shadow-[10px_10px_0px_0px_#9FE870] transition-all relative overflow-hidden">
+              <div className="absolute -right-4 -top-4 w-24 h-24 bg-primary/10 rounded-full blur-xl"></div>
+              <h3 className="text-2xl font-black uppercase mb-6 text-primary flex items-center gap-2">
+                <ArrowRight weight="bold" /> Project Scope
+              </h3>
+              <p className="font-mono text-sm text-gray-300 leading-relaxed mb-8">
+                Smart Traffic Intelligence was developed to solve real-world
+                urban congestion issues by utilizing agentic AI workflows on
+                historical traffic datasets.
+              </p>
+              <div className="space-y-4 font-mono text-xs">
+                <div className="flex justify-between border-b border-gray-700 pb-2 group hover:border-primary transition-colors">
+                  <span className="text-gray-400">Dataset</span>
+                  <span className="font-bold text-white group-hover:text-primary transition-colors">
+                    Bengaluru (8.1k)
+                  </span>
+                </div>
+                <div className="flex justify-between border-b border-gray-700 pb-2 group hover:border-primary transition-colors">
+                  <span className="text-gray-400">Core Tech</span>
+                  <span className="font-bold text-white group-hover:text-primary transition-colors">
+                    FastAPI + Next.js
+                  </span>
+                </div>
+                <div className="flex justify-between border-b border-gray-700 pb-2 group hover:border-primary transition-colors">
+                  <span className="text-gray-400">AI Models</span>
+                  <span className="font-bold text-white group-hover:text-primary transition-colors">
+                    XGBoost, I-Forest
+                  </span>
+                </div>
+                <div className="flex justify-between pb-2 group">
+                  <span className="text-gray-400">LLM Engine</span>
+                  <span className="font-bold text-primary group-hover:text-white transition-colors">
+                    Groq
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="border-4 border-neo-border bg-secondary p-8 shadow-neo hover:-translate-y-1 hover:shadow-[8px_8px_0px_0px_#163300] transition-all relative overflow-hidden">
+              <div className="absolute inset-0 pattern-diagonal opacity-10 pointer-events-none"></div>
+              <h3 className="text-2xl font-black uppercase mb-6 relative z-10">
+                Resources
+              </h3>
+              <div className="flex flex-col gap-4 relative z-10">
+                <a
+                  href="https://github.com/sagarsarangi/Smart_traffic_Intelligence"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-between border-3 border-neo-border bg-white p-4 hover:bg-primary hover:-translate-y-1 transition-all group shadow-sm hover:shadow-neo-sm"
+                >
+                  <span className="flex items-center gap-3 font-mono text-sm font-bold uppercase">
+                    <GithubLogo weight="bold" className="w-6 h-6" /> GitHub Repo
+                  </span>
+                  <ArrowUpRight
+                    weight="bold"
+                    className="w-5 h-5 group-hover:rotate-45 transition-transform"
+                  />
+                </a>
+                <a
+                  href="https://github.com/sagarsarangi/Smart_traffic_Intelligence/blob/main/README.md"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-between border-3 border-neo-border bg-white p-4 hover:bg-primary hover:-translate-y-1 transition-all group shadow-sm hover:shadow-neo-sm"
+                >
+                  <span className="flex items-center gap-3 font-mono text-sm font-bold uppercase">
+                    <BookOpen weight="bold" className="w-6 h-6" /> Documentation
+                  </span>
+                  <ArrowUpRight
+                    weight="bold"
+                    className="w-5 h-5 group-hover:rotate-45 transition-transform"
+                  />
+                </a>
+                <Link
+                  href="/dashboard"
+                  className="flex items-center justify-between border-3 border-neo-border bg-neo-text text-primary p-4 hover:bg-black hover:-translate-y-1 transition-all group shadow-sm hover:shadow-neo-sm"
+                >
+                  <span className="flex items-center gap-3 font-mono text-sm font-bold uppercase">
+                    <Code weight="bold" className="w-6 h-6" /> Live Dashboard
+                  </span>
+                  <ArrowRight
+                    weight="bold"
+                    className="w-5 h-5 group-hover:translate-x-2 transition-transform"
+                  />
+                </Link>
+              </div>
+            </div>
+          </div>
         </div>
+      </div>
     );
 }

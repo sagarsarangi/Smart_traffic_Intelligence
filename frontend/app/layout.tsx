@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { Space_Grotesk, Space_Mono } from "next/font/google";
 import ClientLayout from "../components/ClientLayout";
 import { Analytics } from '@vercel/analytics/next';
+import { SpeedInsights } from '@vercel/speed-insights/next';
 
 // Font for headings
 const spaceGrotesk = Space_Grotesk({
@@ -45,6 +46,7 @@ export default function RootLayout({
         <NextTopLoader color="#163300" height={4} showSpinner={false} shadow="none" />
         <ClientLayout>{children}</ClientLayout>
         <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );

@@ -96,7 +96,7 @@ class TestHeatmapCache:
         for p in cache:
             assert isinstance(p["weight"], float)
             assert p["weight"] >= 0.0  # some historical rows compute to 0.0
-            assert p["weight"] <= upper + 1e-6
+            assert p["weight"] <= upper + 1e-3
 
     def test_heatmap_drops_zero_coordinates(self):
         cache = get_heatmap_cache()

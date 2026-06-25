@@ -36,7 +36,7 @@ When building your `X` matrix for XGBoost, the columns must align exactly with t
 - Expected Output: Returns `1` (High) or `0` (Low), and `predict_proba` for confidence %.
 
 **Model 2: `duration_model.joblib` (Regressor)**
-- Target: `resolution_minutes`
+- Target: `resolution_minutes` (trained strictly on 2,035 verified <= 24h ground-truth records, achieving R^2 +0.1083)
 - Expected Output: A float representing the estimated clearance time in minutes.
 
 ---

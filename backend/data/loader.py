@@ -61,9 +61,9 @@ def _corridor_rank(corridor: Any) -> int:
 
 def _compute_resolution_minutes(df: pd.DataFrame) -> pd.Series:
     """
-    Compute resolution_minutes from closed_datetime (primary) or
-    resolved_datetime (fallback).  Returns a float Series; NaN where
-    neither timestamp is available.
+    Compute resolution_minutes from closed_datetime (primary),
+    resolved_datetime (fallback), or end_datetime (fallback 2).
+    Returns a float Series; NaN where no timestamp is available.
     """
     start = pd.to_datetime(df["start_datetime"], errors="coerce")
     res = pd.Series(np.nan, index=df.index)
@@ -76,6 +76,11 @@ def _compute_resolution_minutes(df: pd.DataFrame) -> pd.Series:
         resolved = pd.to_datetime(df["resolved_datetime"], errors="coerce")
         fallback = (resolved - start).dt.total_seconds() / 60.0
         res = res.fillna(fallback)
+
+    if "end_datetime" in df.columns:
+        end_dt = pd.to_datetime(df["end_datetime"], errors="coerce")
+        fallback_end = (end_dt - start).dt.total_seconds() / 60.0
+        res = res.fillna(fallback_end)
 
     return res
 

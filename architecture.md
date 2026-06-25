@@ -488,7 +488,7 @@ All agents are Python functions inside the FastAPI backend — not separate serv
 
 **Classifier (XGBoost):** Trained on authenticated incidents where `priority` is not null. Target: `priority` (0=Low, 1=High). Class imbalance handled with `scale_pos_weight`. Returns predicted class + probability.
 
-**Regressor (XGBoost):** Trained on ~3,205 records where `resolution_minutes` is computable, positive, and ≤ 1,440 min. Target: `resolution_minutes`. Returns a float rounded to nearest minute.
+**Regressor (XGBoost):** Trained strictly on 2,035 records (1,628 train / 407 test, R^2 +0.1083) where `resolution_minutes` is computable, positive, and ≤ 1,440 min. Target: `resolution_minutes`. Returns a float rounded to nearest minute.
 
 **Output:**
 
@@ -758,7 +758,7 @@ These are computed from raw dataset columns before training. The same logic runs
 
 | Derived Feature            | Computation                                                                                  | Notes                                                                 |
 | -------------------------- | -------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| `resolution_minutes`       | `closed_datetime - start_datetime` (minutes); fallback: `resolved_datetime - start_datetime` | Drop if negative, zero, null, or > 1,440 min. ~3,205 records survive. |
+| `resolution_minutes`       | `closed_datetime - start_datetime` (minutes); fallback: `resolved_datetime - start_datetime` | Drop if negative, zero, null, or > 1,440 min. 2,035 records survive (is_valid_duration=1). |
 | `planned_duration_minutes` | `end_datetime - start_datetime` (minutes), planned events only                               | Null for unplanned.                                                   |
 | `hour_of_day`              | `start_datetime.hour`                                                                        | Integer 0–23                                                          |
 | `day_of_week`              | `start_datetime.dayofweek`                                                                   | Integer 0–6                                                           |

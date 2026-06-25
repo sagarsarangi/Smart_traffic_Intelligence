@@ -25,24 +25,17 @@ def build_feature_vector(raw_record: dict, encoders: dict, junction_lookup: dict
 
     start_dt = pd.to_datetime(rec.get("start_datetime"), utc=True, errors="coerce")
     end_dt   = pd.to_datetime(rec.get("end_datetime"),   utc=True, errors="coerce")
-
     closed_dt = pd.to_datetime(rec.get("closed_datetime"), utc=True, errors="coerce")
     resolved_dt = pd.to_datetime(rec.get("resolved_datetime"), utc=True, errors="coerce")
 
-    resolution_minutes = np.nan
-    if pd.notna(start_dt):
-        if pd.notna(closed_dt):
-            resolution_minutes = (closed_dt - start_dt).total_seconds() / 60.0
-        elif pd.notna(resolved_dt):
-            resolution_minutes = (resolved_dt - start_dt).total_seconds() / 60.0
-    
-    if not (0 < resolution_minutes <= 1440):
+    end_ts = closed_dt if pd.notna(closed_dt) else (resolved_dt if pd.notna(resolved_dt) else end_dt)
+    if pd.notna(start_dt) and pd.notna(end_ts):
+        resolution_minutes = max((end_ts - start_dt).total_seconds() / 60, 0)
+    else:
         resolution_minutes = np.nan
 
     event_type = rec.get("event_type", "unplanned")
-    planned_duration_minutes = np.nan
-    if event_type == "planned" and pd.notna(start_dt) and pd.notna(end_dt):
-        planned_duration_minutes = max((end_dt - start_dt).total_seconds() / 60.0, 0)
+    planned_duration_minutes = resolution_minutes if event_type == "planned" else np.nan
 
     hour_of_day = start_dt.hour      if pd.notna(start_dt) else -1
     day_of_week = start_dt.dayofweek if pd.notna(start_dt) else -1

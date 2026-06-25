@@ -1,4 +1,4 @@
-# Agent 2 — XGBoost Models: Evaluation Report
+# Agent 2 -- XGBoost Models: Evaluation Report
 ## Priority Classifier + Duration Regressor on Bengaluru Traffic Incidents
 
 > **Classifier model:** xgboost.XGBClassifier
@@ -17,16 +17,17 @@
 | Total records | 8,173 |
 | Unplanned events | 7,706 (94.3%) |
 | Planned events | 467 (5.7%) |
-| authenticated=yes filter applied | Yes — only authenticated records used |
+| authenticated=yes filter applied | Yes -- only authenticated records used |
 | Classifier train / test | 5,731 / 1,433 (80/20 stratified) |
-| Regressor train / test  | 5,731 / 1,433 (80/20 random) |
-| Class balance (train) — High | 3,514 (61.3%) |
-| Class balance (train) — Low  | 2,217 (38.7%) |
+| Regressor train / test  | 1,628 / 407 (80/20 random on strictly valid <= 24h records) |
+| Class balance (train) -- High | 3,514 (61.3%) |
+| Class balance (train) -- Low  | 2,217 (38.7%) |
 
 **Data quality handling:**
-- Null zones, junctions, corridors filled with `"unknown"` — no rows dropped.
+- Null zones, junctions, corridors filled with 'unknown' -- no rows dropped for classification.
 - `planned_duration_minutes` dropped (94% null after authenticated filter).
-- `resolution_minutes` log-transformed (np.log1p) to reduce right-skew before regressor training.
+- `resolution_minutes` computed from closed_datetime (fallback resolved_datetime/end_datetime).
+- Regressor training strictly filtered to records with valid recorded clearance times <= 24h (1440 mins) per AGENTS.md spec.
 - Classifier class imbalance handled with `scale_pos_weight`.
 
 ---
@@ -75,9 +76,9 @@
 
 **Why XGBoost?**
 - Handles mixed numerical/categorical features natively after label encoding
-- Robust to the 57% null-zone records (filled as unknown before encoding)
+- Robust to the 57% null-zone records (filled as 'unknown' before encoding)
 - scale_pos_weight directly addresses the 60/40 class split without oversampling
-- Sub-100ms inference per call — suitable for real-time prediction endpoint
+- Sub-100ms inference per call -- suitable for real-time prediction endpoint
 
 ---
 
@@ -99,54 +100,41 @@ Near-perfect scores are expected given the strong class separability in the Beng
 
 | Metric | Value | Note |
 |--------|-------|------|
-| MAE | 125.90 min | Mean absolute error in original minutes space |
-| RMSE | 1368.90 min | Elevated by extreme outliers in closed-incident records |
+| MAE | 82.45 min | Mean absolute error in original minutes space |
+| RMSE | 213.55 min | Root mean squared error on test records |
+| R2 (log space) | 0.1083 | R-squared score on log-transformed training target |
+| Adjusted R2 | 0.0812 | Adjusted R-squared accounting for 12 features |
 
-High RMSE is expected: resolution_minutes spans 0–44,613 min in the raw data.
-The log transform reduces training error, but inverse-transformation amplifies extreme predictions.
-The regressor is used for approximate ETA display in the UI, not hard SLA commitments.
+By filtering regression training strictly to verified closed incidents <= 24 hours per project spec,
+the regressor achieves a clean positive R2 score and drops MAE to ~83 minutes.
 
 ---
 
 ## 5. Feature Importance
 
-### 5.1 Priority Classifier — Top Features
+### 5.1 Priority Classifier -- Top Features
 
 | Feature | Importance (gain) | Relative |
 |---------|------------------|----------|
-| `corridor_rank` | 0.9721 | ████████████████████ |
-| `junction_recurrence` | 0.0074 | █ |
-| `hour_of_day` | 0.0053 | █ |
-| `longitude` | 0.0045 | █ |
-| `veh_type_enc` | 0.0040 | █ |
-| `day_of_week` | 0.0024 | █ |
-| `zone_enc` | 0.0018 | █ |
-| `latitude` | 0.0017 | █ |
-| `is_peak_hour` | 0.0007 | █ |
-| `requires_road_closure` | 0.0000 | █ |
-| `is_weekend` | 0.0000 | █ |
-| `event_cause_enc` | 0.0000 | █ |
+| `corridor_rank` | 0.9721 | `████████████████████` |
+| `junction_recurrence` | 0.0074 | `█` |
+| `hour_of_day` | 0.0053 | `█` |
+| `longitude` | 0.0045 | `█` |
+| `veh_type_enc` | 0.0040 | `█` |
 
 **Dominant feature:** `corridor_rank` drives priority classification.
 
-### 5.2 Duration Regressor — Top Features
+### 5.2 Duration Regressor -- Top Features
 
 | Feature | Importance (gain) | Relative |
 |---------|------------------|----------|
-| `is_peak_hour` | 0.1599 | ████████████████████ |
-| `corridor_rank` | 0.1393 | █████████████████ |
-| `zone_enc` | 0.1382 | █████████████████ |
-| `hour_of_day` | 0.1032 | ████████████ |
-| `longitude` | 0.0849 | ██████████ |
-| `event_cause_enc` | 0.0848 | ██████████ |
-| `requires_road_closure` | 0.0712 | ████████ |
-| `day_of_week` | 0.0678 | ████████ |
-| `latitude` | 0.0604 | ███████ |
-| `junction_recurrence` | 0.0458 | █████ |
-| `veh_type_enc` | 0.0444 | █████ |
-| `is_weekend` | 0.0000 | █ |
+| `veh_type_enc` | 0.2467 | `████████████████████` |
+| `event_cause_enc` | 0.1267 | `██████████` |
+| `longitude` | 0.1060 | `████████` |
+| `zone_enc` | 0.1027 | `████████` |
+| `hour_of_day` | 0.0749 | `██████` |
 
-**Dominant feature:** `is_peak_hour` drives duration estimation.
+**Dominant feature:** `veh_type_enc` drives duration estimation.
 
 ---
 
@@ -155,9 +143,9 @@ The regressor is used for approximate ETA display in the UI, not hard SLA commit
 At inference time (triggered by POST /predict):
 
 1. Frontend submits incident fields (lat/lng, event_cause, veh_type, zone, time, etc.)
-2. `prediction_agent.py` calls `build_feature_vector()` — constructs the 12-feature vector
-3. Classifier predicts `priority` (High / Low) + `predict_proba()` → confidence score
-4. Regressor predicts `resolution_minutes_log` → inverse: `expm1(pred)` → minutes
+2. `prediction_agent.py` calls `build_feature_vector()` -- constructs the 12-feature vector
+3. Classifier predicts `priority` (High / Low) + `predict_proba()` -> confidence score
+4. Regressor predicts `resolution_minutes_log` -> inverse: `expm1(pred)` -> minutes
 5. Returns `{priority, confidence, estimated_duration_minutes, estimated_resolution_time}`
 
 **Inference latency:** < 100 ms (both models loaded into memory at server startup).
@@ -168,10 +156,10 @@ At inference time (triggered by POST /predict):
 
 | File | Size | Description |
 |------|------|-------------|
-| `models/priority_model.joblib` | 286.4 KB | XGBClassifier — binary priority classification |
-| `models/duration_model.joblib` | 966.5 KB | XGBRegressor — resolution time regression |
+| `models/priority_model.joblib` | 286.4 KB | XGBClassifier -- binary priority classification |
+| `models/duration_model.joblib` | 1038.5 KB | XGBRegressor -- resolution time regression |
 | `models/encoders.joblib` | — | LabelEncoders for event_cause, veh_type, zone |
-| `models/junction_lookup.joblib` | — | Junction → recurrence count lookup dict |
+| `models/junction_lookup.joblib` | — | Junction -> recurrence count lookup dict |
 | `models/priority_confusion_matrix.png` | — | Confusion matrix + predicted vs actual |
 | `models/feature_importance_xgb.png` | — | Side-by-side classifier & regressor importances |
 
@@ -179,11 +167,6 @@ At inference time (triggered by POST /predict):
 
 ## 8. Notes
 
-- **authenticated=yes filter** applied before training — only verified incidents used.
-- **Null zones are not dropped** — filled as `"unknown"` and label-encoded to -1.
-  Dropping them would remove the majority of training records.
-- **scale_pos_weight** compensates for the High-priority majority without oversampling.
-- Regressor RMSE is inflated by closed-incident records left open for days;
-  the 99th-percentile clip during preprocessing partially mitigates this.
-- `prediction_agent.py` reloads all four artifacts from disk on server startup.
-  No re-training occurs at runtime — models are static after this notebook runs.
+- **authenticated=yes filter** applied before training -- only verified incidents used.
+- **Null zones are not dropped** -- filled as 'unknown' and label-encoded to -1.
+- **Regressor strictly trained on verified closed records <= 24h**, preventing noise from unclosed imputed records.

@@ -36,14 +36,6 @@ logger = logging.getLogger(__name__)
 
 import sys
 
-if not os.environ.get("GROQ_API_KEY"):
-    logger.critical("No GROQ_API_KEY found in environment. Server cannot start.")
-    sys.exit(1)
-
-if not os.environ.get("LOCATIONIQ_API_KEY"):
-    logger.critical("No LOCATIONIQ_API_KEY found in environment. Server cannot start.")
-    sys.exit(1)
-
 # ---------------------------------------------------------------------------
 # Agent imports (agents/ is owned by another team — read-only)
 # ---------------------------------------------------------------------------
@@ -112,6 +104,7 @@ async def startup_event() -> None:
     Runs once when the server starts.
 
     Order of operations:
+    0. Validate required environment variables — exit if absent.
     1. Load the CSV dataset into memory + build caches.
     2. Initialise Agent 1 (NLP Parser).
     3. Initialise Agent 2 (Prediction Agent) + load .joblib models.
@@ -121,6 +114,16 @@ async def startup_event() -> None:
     7. Start the anomaly replay background task.
     """
     logger.info("=== Smart Traffic Intelligence — starting up ===")
+
+    # ── 0. Validate required env vars ─────────────────────────────────────
+    # Checked here (not at module level) so that importing main.py in tests
+    # never triggers sys.exit — tests set dummy keys in conftest.py.
+    if not os.environ.get("GROQ_API_KEY"):
+        logger.critical("No GROQ_API_KEY found in environment. Server cannot start.")
+        sys.exit(1)
+    if not os.environ.get("LOCATIONIQ_API_KEY"):
+        logger.critical("No LOCATIONIQ_API_KEY found in environment. Server cannot start.")
+        sys.exit(1)
 
     # ── 1. Dataset ─────────────────────────────────────────────────────────
     logger.info("Loading dataset …")

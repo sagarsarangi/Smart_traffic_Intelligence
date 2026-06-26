@@ -19,7 +19,7 @@ A real-time traffic intelligence dashboard for Bengaluru traffic authorities. Th
 | ML Models   | XGBoost (classifier + regressor), Isolation Forest                        |
 | LLM         | Groq API  (Agents 1 and 4, plus Geocoding)           |
 | Data        | Bengaluru traffic incident CSV (8,173 records), held in-memory at runtime |
-| Persistence | None during session; `feedback.jsonl` for post-demo review                |
+| Persistence | None (stateless in-memory demo; feedback logged to stdout)                |
 
 ---
 
@@ -57,9 +57,8 @@ A real-time traffic intelligence dashboard for Bengaluru traffic authorities. Th
 │   │   └── predict.py
 │   ├── training/                # ML Training
 │   │   └── traffic_analysis.ipynb
-│   ├── utils/                   # Backend Utilities
-│   │   └── security.py
-│   └── feedback.jsonl           # Appended at runtime; not committed
+│   └── utils/                   # Backend Utilities
+│       └── security.py
 ├── frontend/
 │   ├── app/
 │   │   └── dashboard/page.tsx   # Next.js main dashboard page
@@ -406,7 +405,7 @@ Frontend polls this endpoint every 10 seconds and updates badge colors on the An
 { "status": "ok" }
 ```
 
-Appends one JSON line to `feedback.jsonl`. Not used for live retraining — exists for post-demo review.
+Accepts rating for visual demo confirmation. Logs to server stdout without file persistence.
 
 ---
 

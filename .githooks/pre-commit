@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+set -e
+
+echo "=========================================="
+echo "         Running Pre-Commit Checks        "
+echo "=========================================="
+
+echo ""
+echo "=== 1/2: Running Backend Test Suite (Pytest) ==="
+(
+  cd backend
+
+  # Prioritize project virtual environments (venv / .venv) across Windows, Linux, and macOS
+  PY=""
+  for cand in \
+    "./venv/Scripts/python.exe" \
+    "./venv/bin/python" \
+    "./.venv/Scripts/python.exe" \
+    "./.venv/bin/python" \
+    "../venv/Scripts/python.exe" \
+    "../venv/bin/python" \
+    "../.venv/Scripts/python.exe" \
+    "../.venv/bin/python" \
+    python py python3; do
+    if [ -f "$cand" ] || command -v "$cand" >/dev/null 2>&1; then
+      if "$cand" --version >/dev/null 2>&1; then
+        PY="$cand"
+        break
+      fi
+    fi
+  done
+
+  if [ -z "$PY" ]; then
+    echo "Error: Valid Python executable not found in project venv or system PATH."
+    exit 1
+  fi
+
+  echo "-> Using Backend Python: $PY"
+  "$PY" -m pytest tests
+)
+
+echo ""
+echo "=== 2/2: Running Frontend Test Suite (Vitest) ==="
+(
+  cd frontend
+  echo "-> Using Package Manager: npm"
+  npm test
+)
+
+echo ""
+echo "=========================================="
+echo "       All checks passed! Committing.     "
+echo "=========================================="

@@ -14,7 +14,11 @@ describe('API lib tests', () => {
   });
 
   it('handleApiError suppresses network error logic and returns safe default', async () => {
-    expect(true).toBe(true);
+    global.fetch = vi.fn().mockRejectedValueOnce(new Error('Failed to fetch'));
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const res = await api.fetchHeatmap();
+    expect(res).toBeNull();
+    expect(consoleSpy).not.toHaveBeenCalled();
   });
 
   it('streamActionPlan SSE parsing works and handles [DONE]', async () => {

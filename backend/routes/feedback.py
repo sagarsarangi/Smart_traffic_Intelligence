@@ -20,14 +20,10 @@ GET response:
 [ { "timestamp": "...", "incident_context": {...}, "action_plan": "...", "rating": "up" } ]
 """
 
-import json
 import logging
-from datetime import datetime, timezone
-from pathlib import Path
-import threading
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
@@ -35,10 +31,8 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 # ---------------------------------------------------------------------------
-# Feedback file — sits alongside main.py in the backend directory
+# Feedback — visual only during demo review (no disk persistence required)
 # ---------------------------------------------------------------------------
-_FEEDBACK_PATH = Path("backend/feedback.jsonl")
-_write_lock = threading.Lock()
 
 
 # ---------------------------------------------------------------------------
@@ -77,29 +71,11 @@ class FeedbackResponse(BaseModel):
 )
 def post_feedback(request: FeedbackRequest) -> FeedbackResponse:
     """
-    Appends a single JSON line to feedback.jsonl.
-    Each entry includes an ISO timestamp, the full incident context,
-    the action plan text, and the rating.
-
-    Not used for live retraining — exists for post-demo review.
+    Accepts feedback rating for visual demo confirmation.
+    Logs feedback to standard output without writing to disk.
     """
-    entry = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "incident_context": request.incident_context,
-        "action_plan": request.action_plan,
-        "rating": request.rating,
-    }
-
-    try:
-        _FEEDBACK_PATH.parent.mkdir(parents=True, exist_ok=True)
-        with _write_lock:
-            with _FEEDBACK_PATH.open("a", encoding="utf-8") as fh:
-                fh.write(json.dumps(entry, ensure_ascii=False) + "\n")
-        logger.info("Feedback recorded: rating=%s", request.rating)
-        return FeedbackResponse(status="ok")
-    except OSError as exc:
-        logger.exception("Failed to write feedback: %s", exc)
-        raise HTTPException(status_code=500, detail=f"Could not save feedback: {exc}")
+    logger.info("Visual feedback recorded: rating=%s", request.rating)
+    return FeedbackResponse(status="ok")
 
 
 # ---------------------------------------------------------------------------
@@ -113,24 +89,6 @@ def post_feedback(request: FeedbackRequest) -> FeedbackResponse:
 )
 async def get_feedback() -> List[Dict[str, Any]]:
     """
-    Returns all entries from feedback.jsonl as a JSON array.
-    Used for post-demo review. Returns an empty list if the file does not exist.
+    Returns an empty list as feedback persistence is disabled.
     """
-    if not _FEEDBACK_PATH.exists():
-        return []
-
-    entries = []
-    try:
-        with _FEEDBACK_PATH.open("r", encoding="utf-8") as fh:
-            for line in fh:
-                line = line.strip()
-                if line:
-                    try:
-                        entries.append(json.loads(line))
-                    except json.JSONDecodeError:
-                        logger.warning("Skipping malformed feedback line.")
-    except OSError as exc:
-        logger.exception("Failed to read feedback file: %s", exc)
-        raise HTTPException(status_code=500, detail=f"Could not read feedback: {exc}")
-
-    return entries
+    return []

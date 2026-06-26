@@ -21,12 +21,15 @@ def test_analytics_all_datasets_present(client):
 
 def test_predict_happy_path(client, sample_incident):
     res = client.post("/predict", json=sample_incident)
-    assert res.status_code in [200, 503]
+    assert res.status_code == 200
+    assert "priority" in res.json()
 
-def test_predict_503_when_unset(client, sample_incident):
+def test_predict_503_when_unset(client, sample_incident, monkeypatch):
+    import backend.routes.predict as P
+    monkeypatch.setattr(P, "_agent", None)
     res = client.post("/predict", json=sample_incident)
-    if res.status_code == 503:
-        assert "not loaded" in res.json()["detail"].lower()
+    assert res.status_code == 503
+    assert "not initialised" in res.json()["detail"].lower()
 
 def test_nlp_parse(client):
     res = client.post("/nlp-parse", json={"description": ""})
@@ -34,7 +37,14 @@ def test_nlp_parse(client):
     assert res.json() is None
 
 def test_feedback_roundtrip(client):
-    pass
+    payload = {
+        "incident_context": {"zone": "HSR Layout", "event_cause": "accident"},
+        "action_plan": "Deploy 4 officers",
+        "rating": "up"
+    }
+    res = client.post("/feedback", json=payload)
+    assert res.status_code == 200
+    assert res.json()["status"] == "ok"
 
 def test_anomaly(client):
     res = client.get("/anomaly")

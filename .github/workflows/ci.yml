@@ -20,7 +20,10 @@ jobs:
       - name: Install dependencies
         run: pip install -r backend/requirements.txt -r backend/requirements-dev.txt
       - name: Run Pytest
-        run: cd backend && pytest --cov=backend --cov-report=term-missing --cov-report=xml
+        env:
+          GROQ_API_KEY: dummy-ci-key-not-real
+          LOCATIONIQ_API_KEY: dummy-ci-locationiq-not-real
+        run: cd backend && pytest --cov=. --cov-report=term-missing --cov-report=xml
       - name: Upload Coverage
         uses: actions/upload-artifact@v4
         with:
@@ -60,8 +63,5 @@ jobs:
           if grep -i 'GROQ_API_KEY=' backend/.env 2>/dev/null || grep -i 'GROQ_API_KEY=' frontend/.env 2>/dev/null; then
             echo "Secrets found in repo! Failing."
             exit 1
-          fi
-          if [ ! -f "backend/feedback.jsonl" ]; then
-             echo "feedback.jsonl drift OK."
           fi
           echo "All quality checks passed!"
